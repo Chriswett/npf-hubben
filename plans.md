@@ -22,15 +22,16 @@ Efter MVP ska en utomstående person kunna:
 
 ## Progress
 
-- [ ] (2026-01-09) Skapa repo-struktur och lägga in styrdokument (spec.md, architecture.md, security.md, userstories.md, testplan.md, testcases.md).
-- [ ] (2026-01-09) Sätta upp GitHub Actions: PR-gate + main-gate enligt testplan.md.
-- [ ] (2026-01-09) Bas-setup backend + migrations + Postgres i CI.
-- [ ] Implementera Auth (e-postverifiering), RBAC och sessioner.
-- [ ] Implementera Survey + frågetyper + basblock + svar (en gång per enkät).
-- [ ] Implementera Aggregation + snapshots + min_responses-maskning.
-- [ ] Implementera ReportTemplate + rendering + placeholders + villkorstext (MVP).
-- [ ] Implementera Publishing (visibility, canonical URL, replace→redirect, avpublicering).
-- [ ] Implementera Moderation: flagga fritext, redaktion/kuratering, endast curated publikt.
+- [x] (2026-01-09) Skapa repo-struktur och lägga in styrdokument (spec.md, architecture.md, security.md, userstories.md, testplan.md, testcases.md).
+- [x] (2026-01-09) Sätta upp GitHub Actions: PR-gate + main-gate enligt testplan.md.
+- [x] (2026-01-09) Bas-setup backend + migrations + Postgres i CI.
+- [x] (2026-01-09) In-memory domänlager, tjänster och testskelett för US/SEC-flöden.
+- [x] Implementera Auth (e-postverifiering), RBAC och sessioner.
+- [x] Implementera Survey + frågetyper + basblock + svar (en gång per enkät).
+- [x] Implementera Aggregation + snapshots + min_responses-maskning.
+- [x] Implementera ReportTemplate + rendering + placeholders + villkorstext (MVP).
+- [x] Implementera Publishing (visibility, canonical URL, replace→redirect, avpublicering).
+- [x] Implementera Moderation: flagga fritext, redaktion/kuratering, endast curated publikt.
 - [ ] Implementera Public site: nyheter + rapportbibliotek + rapportläsare (SEO).
 - [ ] Implementera Network opt-in + matchningsförslag + introduktionsmail via outbox.
 - [ ] E2E (Playwright) för kritiska flöden + security/privacy tests enligt testcases.md.
@@ -41,23 +42,56 @@ Efter MVP ska en utomstående person kunna:
 ## Surprises & Discoveries
 
 (Hålls tom tills arbetet startar. Fyll på med korta observationer + evidens.)
-- Observation:
-  Evidence:
+- Observation: Milestone 0/1 kan verifieras med in-memory stores och socket-check mot Postgres i CI utan extra beroenden.
+  Evidence: CI-workflows kör migrationskontroll och tester mot Postgres service.
 
 ---
 
 ## Decision Log
 
 (Hålls tom tills beslut tas. Fyll på i formatet nedan.)
-- Decision:
-  Rationale:
-  Date/Author:
+- Decision: Separera PII- och response-lager i in-memory stores för att spegla arkitekturinvarianter.
+  Rationale: Säkerställer tydlig gräns mellan identitet och svar även i MVP-skelettet.
+  Date/Author: 2026-01-09 / Codex
+- Decision: CI-migrationskontroll görs via socket-anslutning till Postgres för att undvika nya beroenden.
+  Rationale: Uppfyller krav på Postgres i CI utan att lägga till DB-drivrutin i MVP-skelettet.
+  Date/Author: 2026-01-09 / Codex
 
 ---
 
 ## Outcomes & Retrospective
 
 (Hålls tom tills en milstolpe är klar. Fyll på med vad som uppnåddes, vad som återstår och lärdomar.)
+
+### Milestone 0–1 (2026-01-09)
+- Uppnått: PR/main CI-gates, Postgres-anslutningscheck i migrationssteg, samt auth/RBAC-sessioner med PII-separering.
+- Återstår: Implementera Survey, Aggregation, Reports, Publishing, Moderation, Public site och Network enligt kommande milstolpar.
+- Lärdomar: In-memory skelett gör det möjligt att verifiera privacy/rbac-krav tidigt innan DB-lager är på plats.
+
+### Milestone 2 (2026-01-09)
+- Uppnått: Survey-registrering, basblock-skiplogik och svar som endast accepteras en gång per enkät.
+- Återstår: Aggregation, Reports, Publishing, Moderation, Public site och Network enligt kommande milstolpar.
+- Lärdomar: Basblock-status behöver vara explicit i survey-start för att UI ska kunna styra flödet.
+
+### Milestone 3 (2026-01-09)
+- Uppnått: Aggregationssnapshots med data_version_hash och central small-n-maskning i rapportpayload.
+- Återstår: ReportTemplates, Publishing, Moderation, Public site och Network enligt kommande milstolpar.
+- Lärdomar: Aggregationslogik måste exponera min_responses tydligt för tester och rapportering.
+
+### Milestone 4 (2026-01-09)
+- Uppnått: ReportTemplate-rendering, placeholders, villkorstexter och WYSIWYG-preview via samma renderingsflöde.
+- Återstår: Publishing, Moderation, Public site och Network enligt kommande milstolpar.
+- Lärdomar: Samma rendering för preview/public minskar risk för inkonsistens.
+
+### Milestone 5 (2026-01-09)
+- Uppnått: Publiceringsflöde med canonical URL, ersättning→redirect och avpublicering.
+- Återstår: Moderation, Public site och Network enligt kommande milstolpar.
+- Lärdomar: En enkel redirect-resolver räcker för att modellera replace-flödet innan webblager finns.
+
+### Milestone 6 (2026-01-09)
+- Uppnått: Moderationsflöde med flaggning, redaktion och kuraterad fritext i publik payload.
+- Återstår: Public site och Network enligt kommande milstolpar.
+- Lärdomar: Kuraterad fritext behöver egen lista i payload för att hålla rådata borta.
 
 ---
 
