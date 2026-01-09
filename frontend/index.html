@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="sv">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>NPF Hubben – Nyheter och rapporter</title>
+    <meta name="description" content="Nyheter och publika rapporter för NPF Hubben." />
+    <link rel="stylesheet" href="/ui/styles.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <h1 data-testid="site-title">NPF Hubben</h1>
+      <p class="subtitle">Publika nyheter och rapporter</p>
+    </header>
+
+    <main class="layout">
+      <section class="card" aria-labelledby="news-title">
+        <h2 id="news-title">Nyheter</h2>
+        <ul data-testid="news-list" id="news-list" class="stack"></ul>
+      </section>
+
+      <section class="card" aria-labelledby="reports-title">
+        <h2 id="reports-title">Rapportbibliotek</h2>
+        <label class="field">
+          <span>Sök rapport</span>
+          <input
+            data-testid="report-filter"
+            id="report-filter"
+            type="text"
+            placeholder="Sök på rapport-id"
+          />
+        </label>
+        <ul data-testid="report-list" id="report-list" class="stack"></ul>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <p>NPF Hubben – publik vy</p>
+    </footer>
+
+    <script src="/ui/app.js" defer></script>
+  </body>
+</html>

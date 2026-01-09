@@ -11,6 +11,8 @@ from backend.services import (
     AuthService,
     BackupService,
     BaseProfileService,
+    ConsentService,
+    AccountService,
     NetworkService,
     PublishingService,
     PublicSiteService,
@@ -279,6 +281,22 @@ class ServiceTests(unittest.TestCase):
         parent = self.auth.verify_email(self.auth.register("parent-publish@example.com").verification_token)
         with self.assertRaises(UnauthorizedError):
             publishing.publish(parent, template_id=1)
+
+    def test_us11_consent_and_account_deletion(self):
+        user = self.auth.verify_email(self.auth.register("delete@example.com").verification_token)
+        BaseProfileService(self.stores.pii).ensure_base_profile(user, "Kommun Z", ["kategori"])
+        survey = self.surveys.create_survey({"questions": [{"type": "scale"}]})
+        self.responses.submit_response(user, survey.id, {"q": 1}, {"free": "raw"})
+        consent_service = ConsentService(self.stores.pii)
+        record = consent_service.record_consent(user, "survey", "v1")
+        self.assertEqual(record.status, "granted")
+        revoked = consent_service.revoke_consent(user, "survey", "v1")
+        self.assertEqual(revoked.status, "revoked")
+
+        account_service = AccountService(self.stores.pii, self.stores.responses)
+        account_service.delete_account(user, user.id)
+        self.assertIsNone(self.stores.pii.get_user(user.id))
+        self.assertIsNone(self.stores.pii.get_base_profile(user.id))
 
     def test_sec_log_policy_sanitizes_payload(self):
         sanitized = sanitize_log({"payload": "secret", "email": "x", "event": "login"})

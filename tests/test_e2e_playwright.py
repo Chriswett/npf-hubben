@@ -87,3 +87,24 @@ def test_public_report_redirect(server_url: str) -> None:
         page.goto(f"{server_url}/reports/rapport-old?kommun=Test")
         assert page.url.endswith("/reports/rapport-new?kommun=Test")
         browser.close()
+
+
+def test_public_ui_landing_page(server_url: str) -> None:
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch()
+        page = browser.new_page()
+        page.goto(f"{server_url}/ui/")
+        page.wait_for_selector("[data-testid='news-list']")
+        page.wait_for_selector("[data-testid='report-list']")
+        browser.close()
+
+
+def test_public_ui_report_reader(server_url: str) -> None:
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch()
+        page = browser.new_page()
+        page.goto(f"{server_url}/ui/report.html?slug=rapport-e2e&kommun=Test")
+        page.wait_for_selector("[data-testid='report-blocks']")
+        banner_visible = page.is_visible("[data-testid='small-n-banner']")
+        assert banner_visible is True
+        browser.close()

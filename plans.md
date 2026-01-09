@@ -36,6 +36,9 @@ Efter MVP ska en utomstående person kunna:
 - [x] Implementera Network opt-in + matchningsförslag + introduktionsmail via outbox.
 - [x] E2E (Playwright) för kritiska flöden + security/privacy tests enligt testcases.md.
 - [x] Outcomes & Retrospective: sammanställ MVP-resultat, kända gap och nästa steg.
+- [x] (2026-01-10) Milestone 9: Publikt UI/SEO-lager (SPA) + rapportläsare enligt architecture.md.
+- [x] (2026-01-10) Milestone 10: API-lager + session/cookie/CSRF-skydd runt tjänster.
+- [x] (2026-01-10) Milestone 11: Samtycken (ConsentRecord) + kontoradering/audit-flöden.
 
 ---
 
@@ -236,6 +239,40 @@ Mål: erbjuda nätverk, endast ja-sägare kopplas och mail skapas.
 Acceptans:
 - `TC-US08-*`, `TC-US09-*` passerar.
 - Inga nätverksendpoints åtkomliga för Allmänheten.
+
+### Milestone 9: Publikt UI/SEO-lager (SPA)
+Mål: första riktiga webblagret för publika vyer, med rapportläsare och SEO-stöd.
+- Bygg publik startsida + nyheter.
+- Rapportbibliotek med sök/filter (MVP).
+- Rapportläsare med kommunparam + small-n-banner.
+- UI-komponenter för “X”-maskning och banner.
+- Grundläggande SEO: statiska titlar/metadata per rapport.
+
+Acceptans:
+- `TC-US21-*` kan köras via UI.
+- Playwright E2E verifierar publik rapportläsning och small-n-banner.
+- `data-testid` finns på kritiska UI-element (enligt testplan.md).
+
+### Milestone 10: API-lager + session/cookie/CSRF
+Mål: fullständigt HTTP/API-lager med RBAC, sessioner och skydd enligt security.md.
+- Bygg API-endpoints för auth, survey, responses, reports, publishing.
+- Sessionhantering via säkra cookies (HttpOnly, Secure, SameSite).
+- CSRF-skydd för state-changing endpoints.
+- Rate limiting på publika endpoints.
+
+Acceptans:
+- `TC-US01-*`, `TC-US03-*`, `TC-US05-*`, `TC-US22-*` passerar via API.
+- `TC-SEC-*` verifierar CSP/X-Frame-Options, rate limiting och felmeddelanden.
+
+### Milestone 11: Samtycken + kontoradering + audit
+Mål: samtyckesflöden och kontoradering enligt security.md.
+- Implementera ConsentRecord (versionerade samtycken) i PII-lager.
+- Flöden för återkallelse och kontoradering.
+- Audit-loggning för radering och samtyckesändringar.
+
+Acceptans:
+- Nya testfall för samtycke och radering passerar.
+- Raderingsflöde tar bort PII och fritext enligt security.md.
 
 ---
 
