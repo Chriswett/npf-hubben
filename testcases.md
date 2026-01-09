@@ -1,8 +1,8 @@
 # testcases.md
 **Projekt:** Samarbets- och analysplattform för NPF-föräldrar  
-**Version:** v1.1  
-**Datum:** 2026-01-08  
-**Status:** Fastställd – verifierbara testfall
+**Version:** v1.2  
+**Datum:** 2026-01-09  
+**Status:** Fastställd – verifierbara testfall (koherensfix US-04/05/06)
 
 Notation:
 - **U** = Unit test
@@ -60,21 +60,30 @@ Notation:
 ## US-04 – Basblock visas bara en gång
 
 ### TC-US04-01 (I, PR+MAIN)
-**Scenario:** Första svar accepteras  
-- Then: response sparas och aggregation uppdateras
+**Scenario:** Basblock visas för ny användare  
+- Given: användare utan BaseProfile/basblock  
+- When: användaren startar första enkätflödet  
+- Then: basblock presenteras före enkäten  
+- And: basblock-svar lagras i BaseProfile (eller motsv.)
 
-### TC-US04-02 (C, PR+MAIN)
-**Scenario:** Dubbelsvar blockeras  
-- When: samma konto svarar igen  
-- Then: 409 eller definierad felkod
+### TC-US04-02 (I, PR+MAIN)
+**Scenario:** Basblock hoppas över för återkommande  
+- Given: användare med redan ifyllt basblock  
+- When: användaren startar en ny enkät  
+- Then: basblock visas inte  
+- And: enkätstart går direkt till första sektionen
 
 ---
 
 ## US-05 – Enkät kan bara besvaras en gång
 
-### TC-US05-01 (I, MAIN)
-**Scenario:** Öppen enkät kan besvaras senare  
-- Then: aggregation och rapport uppdateras
+### TC-US05-01 (C, PR+MAIN)
+**Scenario:** Dubbelsvar blockeras (idempotens per enkät och konto)  
+- Given: ett konto som redan lämnat response för survey X  
+- When: samma konto försöker POST:a response för survey X igen  
+- Then: 409 (eller definierad felkod) returneras  
+- And: inga nya rader skapas  
+- And: aggregering förändras inte
 
 ---
 
@@ -82,11 +91,12 @@ Notation:
 
 ### TC-US06-01 (I, MAIN)
 **Scenario:** Parent kan svara på äldre, fortfarande öppna enkäter  
-- Given: en enkät som publicerats tidigare och fortfarande är öppen  
-- And: användaren har inte svarat på den tidigare  
-- When: användaren svarar på enkäten  
-- Then: svaret accepteras  
-- And: aggregering och rapportdata uppdateras
+- Given: survey X publicerades tidigare och är fortfarande öppen  
+- And: användaren har inte svarat på survey X  
+- When: användaren svarar på survey X  
+- Then: response accepteras  
+- And: aggregering uppdateras  
+- And: rapportdata reflekterar den nya totalen
 
 ---
 
@@ -194,7 +204,7 @@ Notation:
 
 ### TC-US09-02 (I, MAIN)
 **Scenario:** Introduktionsmail skapas  
-- Then: ett outbox-mail med alla mottagare
+- Then: ett outbox-mail med alla mottagare och obligatorisk motivering
 
 ### TC-US09-03 (C, MAIN)
 **Scenario:** Allmänheten saknar åtkomst  
