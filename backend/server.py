@@ -7,6 +7,8 @@ from .domain import UnauthorizedError, ValidationError
 from .services import PublicSiteService
 from .storage import InMemoryStores
 
+APP_VERSION = "0.1.0"
+
 
 class HealthHandler(BaseHTTPRequestHandler):
     stores: InMemoryStores = InMemoryStores()
@@ -17,7 +19,7 @@ class HealthHandler(BaseHTTPRequestHandler):
             return
 
         if self.path == "/version":
-            self._send_json(200, {"version": "0.1.0"})
+            self._send_json(200, {"version": APP_VERSION})
             return
 
         parsed = urlparse(self.path)
