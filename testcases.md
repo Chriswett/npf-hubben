@@ -57,7 +57,7 @@ Notation:
 
 ---
 
-## US-04 – Svara på enkät (en gång)
+## US-04 – Basblock visas bara en gång
 
 ### TC-US04-01 (I, PR+MAIN)
 **Scenario:** Första svar accepteras  
@@ -70,11 +70,23 @@ Notation:
 
 ---
 
-## US-05 – Svara på äldre enkäter
+## US-05 – Enkät kan bara besvaras en gång
 
 ### TC-US05-01 (I, MAIN)
 **Scenario:** Öppen enkät kan besvaras senare  
 - Then: aggregation och rapport uppdateras
+
+---
+
+## US-06 – Svara på äldre enkäter
+
+### TC-US06-01 (I, MAIN)
+**Scenario:** Parent kan svara på äldre, fortfarande öppna enkäter  
+- Given: en enkät som publicerats tidigare och fortfarande är öppen  
+- And: användaren har inte svarat på den tidigare  
+- When: användaren svarar på enkäten  
+- Then: svaret accepteras  
+- And: aggregering och rapportdata uppdateras
 
 ---
 
