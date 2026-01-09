@@ -1,8 +1,12 @@
 import argparse
 import json
+import mimetypes
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
+    ConsentService,
+    AccountService,
 from .domain import UnauthorizedError, ValidationError
 from .services import PublicSiteService
 from .storage import InMemoryStores
@@ -10,8 +14,27 @@ from .storage import InMemoryStores
 
 class HealthHandler(BaseHTTPRequestHandler):
     stores: InMemoryStores = InMemoryStores()
+    ui_root = Path(__file__).resolve().parent.parent / "frontend"
 
     def do_GET(self):
+        parsed = urlparse(self.path)
+
+        if parsed.path in {"/ui", "/ui/"}:
+            self._send_file(self.ui_root / "index.html")
+            return
+
+        if parsed.path.startswith("/ui/"):
+            relative = parsed.path[len("/ui/") :]
+            target = (self.ui_root / relative).resolve()
+            if self.ui_root not in target.parents and target != self.ui_root:
+                self._send_json(404, {"error": "not_found"})
+                return
+            if not target.is_file():
+                self._send_json(404, {"error": "not_found"})
+                return
+            self._send_file(target)
+            return
+
         if self.path == "/health":
             self._send_json(200, {"status": "ok"})
             return
@@ -20,7 +43,6 @@ class HealthHandler(BaseHTTPRequestHandler):
             self._send_json(200, {"version": "0.1.0"})
             return
 
-        parsed = urlparse(self.path)
         if parsed.path == "/public/news":
             service = PublicSiteService(self.stores.responses, self.stores.pii)
             items = [{"title": item.title, "body": item.body} for item in service.list_news()]
@@ -69,6 +91,20 @@ class HealthHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def _send_file(self, path: Path) -> None:
+        content = path.read_bytes()
+        content_type = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
+        self.send_response(200)
+        self.send_header("Content-Type", f"{content_type}; charset=utf-8")
+        self.send_header(
+            "Content-Security-Policy",
+            "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:",
+        )
+        self.send_header("X-Frame-Options", "DENY")
+        self.send_header("Content-Length", str(len(content)))
+        self.end_headers()
+        self.wfile.write(content)
+
 
 def create_server(host="0.0.0.0", port=8000, stores: InMemoryStores | None = None):
     handler = HealthHandler
@@ -95,3 +131,51 @@ def parse_args():
 if __name__ == "__main__":
     args = parse_args()
     run(host=args.host, port=args.port)
+        if parsed.path == "/api/consents":
+            user = self._require_user()
+            if user is None:
+                return
+            if not self._require_csrf():
+                return
+            payload = self._read_json()
+            if payload is None:
+                return
+            consent_type = payload.get("consent_type", "")
+            version = payload.get("version", "")
+            status = payload.get("status", "granted")
+            consents = ConsentService(self.stores.pii)
+            record = consents.record_consent(user, consent_type, version, status=status)
+            self._send_json(200, {"consent_id": record.id, "status": record.status})
+            return
+
+        if parsed.path == "/api/consents/revoke":
+            user = self._require_user()
+            if user is None:
+                return
+            if not self._require_csrf():
+                return
+            payload = self._read_json()
+            if payload is None:
+                return
+            consent_type = payload.get("consent_type", "")
+            version = payload.get("version", "")
+            consents = ConsentService(self.stores.pii)
+            record = consents.revoke_consent(user, consent_type, version)
+            self._send_json(200, {"consent_id": record.id, "status": record.status})
+            return
+
+        if parsed.path == "/api/account/delete":
+            user = self._require_user()
+            if user is None:
+                return
+            if not self._require_csrf():
+                return
+            account = AccountService(self.stores.pii, self.stores.responses)
+            try:
+                account.delete_account(user, user.id)
+            except UnauthorizedError:
+                self._send_json(403, {"error": "forbidden"})
+                return
+            self._send_json(200, {"deleted": "ok"})
+            return
+
