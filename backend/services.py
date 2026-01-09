@@ -12,6 +12,7 @@ from .domain import (
     ConflictError,
     IntroductionEvent,
     MailOutbox,
+    NewsItem,
     NetworkPreference,
     ReportTemplate,
     ReportVersion,
@@ -277,6 +278,71 @@ class PublishingService:
         return version.canonical_url
 
 
+class PublicSiteService:
+    def __init__(self, response_store: ResponseStore, pii_store: PiiStore):
+        self.response_store = response_store
+        self.pii_store = pii_store
+
+    def add_news_item(self, title: str, body: str) -> NewsItem:
+        if not title or not body:
+            raise ValidationError("news_item_invalid")
+        item = NewsItem(id=self.response_store.next_id("news"), title=title, body=body)
+        self.response_store.add_news_item(item)
+        return item
+
+    def list_news(self) -> List[NewsItem]:
+        return self.response_store.list_news()
+
+    def list_public_reports(self) -> List[Dict[str, Any]]:
+        entries = []
+        for version in self.response_store.list_report_versions():
+            if version.visibility != "public" or not version.canonical_url:
+                continue
+            entries.append(
+                {
+                    "version_id": version.id,
+                    "template_id": version.template_id,
+                    "canonical_url": version.canonical_url,
+                }
+            )
+        return entries
+
+    def read_report(
+        self,
+        canonical_url: str,
+        kommun: Optional[str] = None,
+        viewer: Optional[User] = None,
+    ) -> Dict[str, Any]:
+        version = self.response_store.get_report_version_by_url(canonical_url)
+        if version is None:
+            raise ValidationError("report_not_found")
+        if version.replaced_by:
+            replacement = self.response_store.get_report_version(version.replaced_by)
+            if replacement and replacement.canonical_url:
+                redirect_url = replacement.canonical_url
+                if kommun:
+                    redirect_url = f"{redirect_url}?kommun={kommun}"
+                return {"redirect": redirect_url}
+        if version.visibility != "public":
+            raise UnauthorizedError("report_not_public")
+        template = self.response_store.get_report_template(version.template_id)
+        if template is None:
+            raise ValidationError("report_template_not_found")
+        snapshot = self.response_store.get_aggregation(template.survey_id)
+        if snapshot is None:
+            raise ValidationError("aggregation_missing")
+        if kommun is None and viewer is not None:
+            profile = self.pii_store.get_base_profile(viewer.id)
+            if profile:
+                kommun = profile.kommun
+        if not kommun:
+            raise ValidationError("kommun_required")
+        curated_texts = self.response_store.list_curated_texts()
+        report_service = ReportService(self.response_store)
+        payload = report_service.build_report_payload(template, snapshot, kommun=kommun, curated_texts=curated_texts)
+        return {"canonical_url": canonical_url, "payload": payload}
+
+
 class ModerationService:
     def __init__(self, store: ResponseStore):
         self.store = store
@@ -309,9 +375,27 @@ class NetworkService:
         self.store = store
 
     def set_preference(self, user: User, opt_in: bool) -> NetworkPreference:
+        require_role(user, ["parent"])
         preference = NetworkPreference(id=self.store.next_id("network_pref"), user_id=user.id, opt_in=opt_in)
         self.store.add_network_preference(preference)
         return preference
+
+    def match_candidates(self) -> Dict[str, List[int]]:
+        segments: Dict[str, List[int]] = {}
+        for profile in self.store.list_base_profiles():
+            categories = profile.categories or ["alla"]
+            for category in categories:
+                key = f"{profile.kommun}:{category}"
+                segments.setdefault(key, []).append(profile.user_id)
+        return segments
+
+    def build_match_summaries(self) -> List[Dict[str, Any]]:
+        summaries = []
+        for segment, user_ids in self.match_candidates().items():
+            kommun, category = segment.split(":", 1)
+            context = f"{kommun} ({category})"
+            summaries.append({"context": context, "count": len(user_ids), "user_ids": list(user_ids)})
+        return summaries
 
     def create_introduction(self, recipients: List[User], reason: str) -> IntroductionEvent:
         eligible = []
@@ -319,8 +403,6 @@ class NetworkService:
             preference = self.store.get_network_preference(user.id)
             if preference and preference.opt_in:
                 eligible.append(user.id)
-        event = IntroductionEvent(id=self.store.next_id("intro_event"), recipients=eligible, reason=reason)
-        self.store.add_intro_event(event)
         mail = MailOutbox(
             id=self.store.next_id("mail"),
             recipients=eligible,
@@ -328,6 +410,13 @@ class NetworkService:
             body=f"Varför du får detta mail: {reason}",
         )
         self.store.add_outbox_mail(mail)
+        event = IntroductionEvent(
+            id=self.store.next_id("intro_event"),
+            recipients=eligible,
+            reason=reason,
+            mail_id=mail.id,
+        )
+        self.store.add_intro_event(event)
         return event
 
     def offer_text(self, count: int, context: str) -> str:

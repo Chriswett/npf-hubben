@@ -10,6 +10,7 @@ from .domain import (
     BaseProfile,
     IntroductionEvent,
     MailOutbox,
+    NewsItem,
     NetworkPreference,
     ReportTemplate,
     ReportVersion,
@@ -74,6 +75,9 @@ class PiiStore:
     def get_base_profile(self, user_id: int) -> Optional[BaseProfile]:
         return self._base_profiles.get(user_id)
 
+    def list_base_profiles(self) -> List[BaseProfile]:
+        return list(self._base_profiles.values())
+
     # Network (PII)
     def add_network_preference(self, preference: NetworkPreference) -> NetworkPreference:
         self._network_preferences[preference.user_id] = preference
@@ -115,6 +119,7 @@ class ResponseStore:
         self._templates: Dict[int, ReportTemplate] = {}
         self._report_versions: Dict[int, ReportVersion] = {}
         self._report_versions_by_url: Dict[str, int] = {}
+        self._news: Dict[int, NewsItem] = {}
         self._text_flags: Dict[int, TextFlag] = {}
         self._redaction_events: Dict[int, TextRedactionEvent] = {}
         self._curated_texts: Dict[int, CuratedText] = {}
@@ -191,6 +196,17 @@ class ResponseStore:
         if version_id is None:
             return None
         return self._report_versions.get(version_id)
+
+    def list_report_versions(self) -> List[ReportVersion]:
+        return list(self._report_versions.values())
+
+    # News
+    def add_news_item(self, item: NewsItem) -> NewsItem:
+        self._news[item.id] = item
+        return item
+
+    def list_news(self) -> List[NewsItem]:
+        return list(self._news.values())
 
     # Moderation
     def add_text_flag(self, flag: TextFlag) -> TextFlag:

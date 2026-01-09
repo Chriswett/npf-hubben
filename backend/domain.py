@@ -87,6 +87,13 @@ class ReportVersion:
 
 
 @dataclass(frozen=True)
+class NewsItem:
+    id: int
+    title: str
+    body: str
+
+
+@dataclass(frozen=True)
 class NetworkPreference:
     id: int
     user_id: int
@@ -98,6 +105,7 @@ class IntroductionEvent:
     id: int
     recipients: List[int]
     reason: str
+    mail_id: Optional[int] = None
 
 
 @dataclass(frozen=True)
