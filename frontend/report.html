@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="sv">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>NPF Hubben – Rapport</title>
+    <meta name="description" content="Publik rapportvy med small-n-maskning." />
+    <link rel="stylesheet" href="/ui/styles.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="back-link" href="/ui/">← Tillbaka</a>
+      <h1 data-testid="report-title">Rapport</h1>
+      <p class="subtitle" data-testid="report-subtitle"></p>
+    </header>
+
+    <main class="layout">
+      <section class="card" aria-labelledby="filter-title">
+        <h2 id="filter-title">Visa kommun</h2>
+        <label class="field">
+          <span>Kommun</span>
+          <input data-testid="kommun-input" id="kommun-input" type="text" placeholder="t.ex. Uppsala" />
+        </label>
+        <button data-testid="kommun-submit" id="kommun-submit" type="button">Uppdatera</button>
+      </section>
+
+      <section class="card" aria-labelledby="report-content">
+        <h2 id="report-content">Rapportinnehåll</h2>
+        <div data-testid="small-n-banner" id="small-n-banner" class="banner hidden">
+          Underlaget är för litet – vissa värden visas som X.
+        </div>
+        <div class="metric" data-testid="report-total"></div>
+        <div data-testid="report-blocks" id="report-blocks" class="stack"></div>
+        <ul data-testid="curated-texts" id="curated-texts" class="stack"></ul>
+      </section>
+    </main>
+
+    <script src="/ui/report.js" defer></script>
+  </body>
+</html>

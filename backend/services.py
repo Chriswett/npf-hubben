@@ -4,6 +4,7 @@ import hashlib
 import json
 import secrets
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from .domain import (
@@ -24,8 +25,10 @@ from .domain import (
     CuratedText,
     AiAnalysisRequest,
     AuditEvent,
+    ConsentRecord,
     User,
     ValidationError,
+    UnauthorizedError,
 )
 from .security import RateLimiter, require_role
 from .storage import PiiStore, ResponseStore
@@ -44,7 +47,6 @@ class AuthService:
     def __init__(self, store: PiiStore, rate_limiter: RateLimiter):
         self.store = store
         self.rate_limiter = rate_limiter
-        self._verification_tokens: Dict[str, int] = {}
 
     def register(self, email: str) -> RegisterResult:
         if not email or "@" not in email:
@@ -54,13 +56,13 @@ class AuthService:
         user = User(id=self.store.next_id("user"), email=email, role="parent", verified=False)
         self.store.add_user(user)
         token = secrets.token_hex(8)
-        self._verification_tokens[token] = user.id
+        self.store.add_verification_token(token, user.id)
         return RegisterResult(user=user, verification_token=token)
 
     def verify_email(self, token: str) -> User:
-        if token not in self._verification_tokens:
+        user_id = self.store.pop_verification_token(token)
+        if user_id is None:
             raise ValidationError("invalid_token")
-        user_id = self._verification_tokens.pop(token)
         return self.store.update_user(user_id, verified=True)
 
     def login(self, email: str) -> Session:
@@ -69,7 +71,8 @@ class AuthService:
         if user is None or not user.verified:
             raise ValidationError("invalid_credentials")
         token = secrets.token_hex(16)
-        session = Session(token=token, user_id=user.id)
+        csrf_token = secrets.token_hex(16)
+        session = Session(token=token, user_id=user.id, csrf_token=csrf_token)
         self.store.add_session(session)
         return session
 
@@ -459,6 +462,46 @@ class AdminService:
         )
         self.store.add_audit_event(event)
         return updated
+
+
+class ConsentService:
+    def __init__(self, store: PiiStore):
+        self.store = store
+
+    def record_consent(self, user: User, consent_type: str, version: str, status: str = "granted") -> ConsentRecord:
+        record = ConsentRecord(
+            id=self.store.next_id("consent"),
+            user_id=user.id,
+            consent_type=consent_type,
+            version=version,
+            status=status,
+            timestamp=datetime.now(timezone.utc).isoformat(),
+        )
+        self.store.add_consent_record(record)
+        return record
+
+    def revoke_consent(self, user: User, consent_type: str, version: str) -> ConsentRecord:
+        return self.record_consent(user, consent_type, version, status="revoked")
+
+
+class AccountService:
+    def __init__(self, pii_store: PiiStore, response_store: ResponseStore):
+        self.pii_store = pii_store
+        self.response_store = response_store
+
+    def delete_account(self, actor: User, target_user_id: int) -> None:
+        require_role(actor, ["parent", "admin"])
+        if actor.role != "admin" and actor.id != target_user_id:
+            raise UnauthorizedError("unauthorized")
+        self.response_store.delete_user_responses(target_user_id)
+        self.pii_store.delete_user_pii(target_user_id)
+        event = AuditEvent(
+            id=self.pii_store.next_id("audit"),
+            actor_id=actor.id,
+            target_user_id=target_user_id,
+            action="account_deleted",
+        )
+        self.pii_store.add_audit_event(event)
 
 
 class SurveyFlowService:

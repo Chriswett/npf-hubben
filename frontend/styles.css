@@ -1,0 +1,107 @@
+:root {
+  color-scheme: light;
+  font-family: "Inter", "Segoe UI", system-ui, sans-serif;
+  background-color: #f5f5f7;
+  color: #1b1b1b;
+}
+
+body {
+  margin: 0;
+}
+
+.site-header {
+  background: #1d4ed8;
+  color: #fff;
+  padding: 2rem 1.5rem 1.5rem;
+}
+
+.subtitle {
+  margin: 0.5rem 0 0;
+  opacity: 0.9;
+}
+
+.site-footer {
+  text-align: center;
+  padding: 2rem 1rem;
+  color: #4b5563;
+}
+
+.layout {
+  display: grid;
+  gap: 1.5rem;
+  padding: 1.5rem;
+}
+
+.card {
+  background: #fff;
+  border-radius: 1rem;
+  padding: 1.5rem;
+  box-shadow: 0 10px 20px rgba(15, 23, 42, 0.08);
+}
+
+.stack {
+  display: grid;
+  gap: 0.75rem;
+  list-style: none;
+  padding: 0;
+  margin: 0.75rem 0 0;
+}
+
+.field {
+  display: grid;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+input {
+  padding: 0.6rem 0.8rem;
+  border-radius: 0.6rem;
+  border: 1px solid #cbd5f5;
+  font-size: 1rem;
+}
+
+button {
+  padding: 0.65rem 1rem;
+  border-radius: 0.6rem;
+  border: none;
+  background: #1d4ed8;
+  color: #fff;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.banner {
+  background: #fff7ed;
+  border: 1px solid #fdba74;
+  color: #9a3412;
+  padding: 0.75rem 1rem;
+  border-radius: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.hidden {
+  display: none;
+}
+
+.metric {
+  font-weight: 600;
+  margin-bottom: 1rem;
+}
+
+.back-link {
+  color: #dbeafe;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+a.report-link {
+  color: #1d4ed8;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+@media (min-width: 960px) {
+  .layout {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
