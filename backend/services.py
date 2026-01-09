@@ -4,6 +4,7 @@ import hashlib
 import json
 import secrets
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from .domain import (
@@ -24,8 +25,10 @@ from .domain import (
     CuratedText,
     AiAnalysisRequest,
     AuditEvent,
+    ConsentRecord,
     User,
     ValidationError,
+    UnauthorizedError,
 )
 from .security import RateLimiter, require_role
 from .storage import PiiStore, ResponseStore
@@ -459,6 +462,46 @@ class AdminService:
         )
         self.store.add_audit_event(event)
         return updated
+
+
+class ConsentService:
+    def __init__(self, store: PiiStore):
+        self.store = store
+
+    def record_consent(self, user: User, consent_type: str, version: str, status: str = "granted") -> ConsentRecord:
+        record = ConsentRecord(
+            id=self.store.next_id("consent"),
+            user_id=user.id,
+            consent_type=consent_type,
+            version=version,
+            status=status,
+            timestamp=datetime.now(timezone.utc).isoformat(),
+        )
+        self.store.add_consent_record(record)
+        return record
+
+    def revoke_consent(self, user: User, consent_type: str, version: str) -> ConsentRecord:
+        return self.record_consent(user, consent_type, version, status="revoked")
+
+
+class AccountService:
+    def __init__(self, pii_store: PiiStore, response_store: ResponseStore):
+        self.pii_store = pii_store
+        self.response_store = response_store
+
+    def delete_account(self, actor: User, target_user_id: int) -> None:
+        require_role(actor, ["parent", "admin"])
+        if actor.role != "admin" and actor.id != target_user_id:
+            raise UnauthorizedError("unauthorized")
+        self.response_store.delete_user_responses(target_user_id)
+        self.pii_store.delete_user_pii(target_user_id)
+        event = AuditEvent(
+            id=self.pii_store.next_id("audit"),
+            actor_id=actor.id,
+            target_user_id=target_user_id,
+            action="account_deleted",
+        )
+        self.pii_store.add_audit_event(event)
 
 
 class SurveyFlowService:

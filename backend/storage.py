@@ -7,6 +7,7 @@ from .domain import (
     AggregationSnapshot,
     AiAnalysisRequest,
     AuditEvent,
+    ConsentRecord,
     BaseProfile,
     IntroductionEvent,
     MailOutbox,
@@ -33,6 +34,7 @@ class PiiStore:
         self._intro_events: Dict[int, IntroductionEvent] = {}
         self._outbox: Dict[int, MailOutbox] = {}
         self._audit_events: Dict[int, AuditEvent] = {}
+        self._consent_records: Dict[int, ConsentRecord] = {}
         self._id_counters: Dict[str, int] = {}
 
     def next_id(self, name: str) -> int:
@@ -108,6 +110,25 @@ class PiiStore:
 
     def list_audit_events(self) -> List[AuditEvent]:
         return list(self._audit_events.values())
+
+    # Consent (PII)
+    def add_consent_record(self, record: ConsentRecord) -> ConsentRecord:
+        self._consent_records[record.id] = record
+        return record
+
+    def list_consent_records(self, user_id: int) -> List[ConsentRecord]:
+        return [record for record in self._consent_records.values() if record.user_id == user_id]
+
+    def delete_user_pii(self, user_id: int) -> None:
+        self._users.pop(user_id, None)
+        self._base_profiles.pop(user_id, None)
+        self._network_preferences.pop(user_id, None)
+        tokens_to_remove = [token for token, uid in self._verification_tokens.items() if uid == user_id]
+        for token in tokens_to_remove:
+            self._verification_tokens.pop(token, None)
+        sessions_to_remove = [token for token, session in self._sessions.items() if session.user_id == user_id]
+        for token in sessions_to_remove:
+            self._sessions.pop(token, None)
 
 
 class ResponseStore:
@@ -237,6 +258,19 @@ class ResponseStore:
 
     def list_ai_requests(self) -> List[AiAnalysisRequest]:
         return list(self._ai_requests.values())
+
+    def delete_user_responses(self, user_id: int) -> None:
+        response_ids = [rid for rid, response in self._responses.items() if response.user_id == user_id]
+        for response_id in response_ids:
+            response = self._responses.pop(response_id, None)
+            if response:
+                self._responses_by_user_survey.pop((response.user_id, response.survey_id), None)
+            curated_ids = [cid for cid, curated in self._curated_texts.items() if curated.response_id == response_id]
+            for curated_id in curated_ids:
+                self._curated_texts.pop(curated_id, None)
+            flag_ids = [fid for fid, flag in self._text_flags.items() if flag.response_id == response_id]
+            for flag_id in flag_ids:
+                self._text_flags.pop(flag_id, None)
 
 
 class InMemoryStores:

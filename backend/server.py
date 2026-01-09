@@ -5,6 +5,8 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
+    ConsentService,
+    AccountService,
 from .domain import UnauthorizedError, ValidationError
 from .services import PublicSiteService
 from .storage import InMemoryStores
@@ -129,3 +131,51 @@ def parse_args():
 if __name__ == "__main__":
     args = parse_args()
     run(host=args.host, port=args.port)
+        if parsed.path == "/api/consents":
+            user = self._require_user()
+            if user is None:
+                return
+            if not self._require_csrf():
+                return
+            payload = self._read_json()
+            if payload is None:
+                return
+            consent_type = payload.get("consent_type", "")
+            version = payload.get("version", "")
+            status = payload.get("status", "granted")
+            consents = ConsentService(self.stores.pii)
+            record = consents.record_consent(user, consent_type, version, status=status)
+            self._send_json(200, {"consent_id": record.id, "status": record.status})
+            return
+
+        if parsed.path == "/api/consents/revoke":
+            user = self._require_user()
+            if user is None:
+                return
+            if not self._require_csrf():
+                return
+            payload = self._read_json()
+            if payload is None:
+                return
+            consent_type = payload.get("consent_type", "")
+            version = payload.get("version", "")
+            consents = ConsentService(self.stores.pii)
+            record = consents.revoke_consent(user, consent_type, version)
+            self._send_json(200, {"consent_id": record.id, "status": record.status})
+            return
+
+        if parsed.path == "/api/account/delete":
+            user = self._require_user()
+            if user is None:
+                return
+            if not self._require_csrf():
+                return
+            account = AccountService(self.stores.pii, self.stores.responses)
+            try:
+                account.delete_account(user, user.id)
+            except UnauthorizedError:
+                self._send_json(403, {"error": "forbidden"})
+                return
+            self._send_json(200, {"deleted": "ok"})
+            return
+

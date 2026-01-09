@@ -150,3 +150,13 @@ class AuditEvent:
     actor_id: int
     target_user_id: int
     action: str
+
+
+@dataclass(frozen=True)
+class ConsentRecord:
+    id: int
+    user_id: int
+    consent_type: str
+    version: str
+    status: str
+    timestamp: str

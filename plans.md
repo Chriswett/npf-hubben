@@ -36,7 +36,7 @@ Efter MVP ska en utomstående person kunna:
 - [x] Implementera Network opt-in + matchningsförslag + introduktionsmail via outbox.
 - [x] E2E (Playwright) för kritiska flöden + security/privacy tests enligt testcases.md.
 - [x] Outcomes & Retrospective: sammanställ MVP-resultat, kända gap och nästa steg.
-- [ ] (2026-01-10) Milestone 9: Publikt UI/SEO-lager (SPA) + rapportläsare enligt architecture.md.
+- [x] (2026-01-10) Milestone 11: Samtycken (ConsentRecord) + kontoradering/audit-flöden.
 - [ ] (2026-01-10) Milestone 10: API-lager + session/cookie/CSRF-skydd runt tjänster.
 - [ ] (2026-01-10) Milestone 11: Samtycken (ConsentRecord) + kontoradering/audit-flöden.
 
