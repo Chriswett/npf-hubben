@@ -1,242 +1,314 @@
 # userstories.md
 **Projekt:** Samarbets- och analysplattform för NPF-föräldrar  
-**Version:** v1.3  
-**Datum:** 2026-01-08  
-**Status:** Fastställd (funktionella krav + testspårbarhet)
+**Version:** v1.4  
+**Datum:** 2026-01-09  
+**Status:** Fastställd – funktionella krav + testspårbarhet
 
-> Icke-funktionella krav (säkerhet, anonymitet, small-n-maskning,
-> loggpolicy, åtkomst, drift m.m.) definieras och verifieras enligt `testplan.md`.
-> User stories fokuserar på funktionellt beteende och domänspecifika krav.
+> Alla globala icke-funktionella krav (säkerhet, anonymitet, small-n,
+> loggpolicy, tillgänglighet, drift) definieras och verifieras enligt
+> `testplan.md`.  
+> Detta dokument fokuserar på **beteende**, **funktion** och
+> **domänspecifika acceptanskriterier**.
 
 ---
 
-## ONBOARDING & ANONYMITET
+## 1. Roller
+
+- **Allmänheten** – oinloggad läsare av publika rapporter och nyheter  
+- **Parent** – registrerad förälder som svarar på enkäter  
+- **Analyst** – skapar enkäter, analyser och rapporter  
+- **Admin** – roller, moderation, radering, audit
+
+---
+
+## 2. Onboarding & grundläggande skydd
 
 ### US-01 – Snabb registrering via publik enkät
-**Som** förälder  
-**vill jag** kunna registrera mig snabbt via en publik enkätlänk  
-**så att** jag kan svara utan krångel.
+**Som** Parent  
+**vill jag** kunna registrera mig via en publik enkätlänk  
+**så att** tröskeln för deltagande är låg.
 
 **AC**
-- Registrering via e-post med verifiering
+- Registrering sker via e-post + verifiering
 - Ingen publik profil skapas
-- Användaren kan börja svara efter verifiering
+- Användaren kan inte svara innan verifiering
 
-**Tests**
+**Testfall**
 - TC-US01-01, TC-US01-02
 
 ---
 
-### US-02 – Anonymitet som default
-**Som** förälder  
-**vill jag** att mina svar är anonyma  
-**så att** jag kan dela känsliga erfarenheter tryggt.
+### US-02 – Tydlig information om anonymitet
+**Som** Parent  
+**vill jag** få tydlig information om anonymitet och risker  
+**så att** jag förstår vad som publiceras och inte.
 
 **AC**
-- Identitet och svar hålls strikt åtskilda
-- Endast aggregerad och/eller kuraterad data exponeras publikt
-- Tydlig information om anonymitet visas i enkätflödet
+- Information visas vid:
+  - registrering
+  - start av enkät
+- Informationen är kort, tydlig och icke-juridisk
+- Uppmaning att inte lämna identifierande info i fritext
 
-**Tests**
-- TC-US02-01, TC-US02-02, TC-SEC-01
+**Testfall**
+- TC-US02-01, TC-SEC-01
 
 ---
 
-## ENKÄTER
+## 3. Enkäter (insamling)
 
-### US-03 – Skapa enkät
-**Som** analytiker  
-**vill jag** kunna skapa enkäter med olika frågetyper  
-**så att** jag kan samla in både snabba svar och analysbar data.
+### US-03 – Skapa enkät (fri komposition)
+**Som** Analyst  
+**vill jag** komponera enkäter av olika frågetyper  
+**så att** datan blir analysbar men lätt att svara på.
 
 **AC**
-- Fri komposition av frågor
-- Stöd för flera frågetyper (skala, flerval, kort/lång text m.fl.)
-- Basblock visas för nya användare och hoppas över för återkommande
+- Stöd för:
+  - skalor
+  - flervalsfrågor
+  - distinkta val
+  - kort text
+  - längre fritext
 - Mjukt tak för längd
+- Fördefinierade block kan återanvändas
 
-**Tests**
+**Testfall**
 - TC-US03-01, TC-US03-02, TC-US03-03
 
 ---
 
-### US-04 – Svara på enkät (en gång)
-**Som** förälder  
-**vill jag** bara kunna svara en gång per enkät  
-**så att** resultaten inte snedvrids.
+### US-04 – Basblock visas bara en gång
+**Som** Parent  
+**vill jag** bara behöva svara på grundfrågor en gång  
+**så att** senare enkäter går snabbare.
 
 **AC**
-- Systemet förhindrar dubbelsvar
-- Bekräftelse visas efter inskick
+- Basblock visas för nya användare
+- Basblock hoppas över om redan besvarat
+- Basblock används för:
+  - skip-logik
+  - default kommun i rapportvy
 
-**Tests**
+**Testfall**
 - TC-US04-01, TC-US04-02
 
 ---
 
-### US-05 – Svara på äldre enkäter
-**Som** förälder  
-**vill jag** kunna svara på öppna enkäter i efterhand  
-**så att** mina svar fortfarande bidrar till analysen.
+### US-05 – Enkät kan bara besvaras en gång
+**Som** system  
+**vill jag** förhindra dubbelsvar  
+**så att** analysen inte snedvrids.
 
 **AC**
-- Lista över öppna enkäter visas
-- Status: svarad / ej svarad
-- Nya svar påverkar analys och rapport
+- Samma konto kan inte svara två gånger
+- Försök till dubbelsvar ger tydligt men neutralt fel
 
-**Tests**
+**Testfall**
 - TC-US05-01
 
 ---
 
-## RESULTAT & INSYN (FÖRÄLDER)
-
-### US-07 – Visa aggregerade resultat
-**Som** förälder  
-**vill jag** få trygg och begriplig återkoppling  
-**så att** jag förstår hur andra i liknande situation svarat.
+### US-06 – Svara på äldre enkäter
+**Som** Parent  
+**vill jag** kunna svara på öppna enkäter i efterhand  
+**så att** mina erfarenheter fortfarande räknas.
 
 **AC**
-- Ingen separat resultatvy; återkoppling sker i flöde och via rapport
-- Omedelbar feedback efter avsnitt (default; konfigurerbar)
-- Fördjupning via rapportvy
-- Presentation prioriterar begriplighet före precision vid låg tillförlitlighet
+- Lista över öppna enkäter visas
+- Status visas: svarad / ej svarad
+- Nya svar påverkar aggregering och rapport
 
-**Tests**
+**Testfall**
+- TC-US06-01
+
+---
+
+## 4. Återkoppling & resultat (Parent)
+
+### US-07 – Direkt men begränsad återkoppling
+**Som** Parent  
+**vill jag** få viss återkoppling direkt  
+**så att** mitt engagemang bibehålls.
+
+**AC**
+- Begränsad feedback efter avsnitt (default)
+- Ingen exakt statistik visas vid lågt underlag
+- Fördjupning sker via rapportvy
+
+**Testfall**
 - TC-US07-01, TC-US07-02, TC-US07-03
 
 ---
 
-## ANALYS & INFOGRAPHICS
+## 5. Analys & rapporter
 
-### US-20 – Skapa kommenterad analysrapport
-**Som** analytiker  
-**vill jag** skapa rapporter med text och kommenterade diagram  
-**så att** analysen blir begriplig och återanvändbar.
+### US-20 – Skapa rapportmall
+**Som** Analyst  
+**vill jag** skapa rapportmallar kopplade till en enkät  
+**så att** analyser kan återanvändas och uppdateras.
 
 **AC**
-- Blockbaserad rapport (text, diagram, tabeller, AI-block)
+- Blockbaserad rapport:
+  - text
+  - diagram
+  - tabeller
 - Placeholders (t.ex. `$kommun`, `$antal_respondenter`)
 - Enkla villkorstexter (MVP)
 - WYSIWYG-preview
-- Rapportmall kopplad till specifik enkät
-- Rapportrendering ska vara reproducerbar för givet dataversionstillstånd
+- Deterministisk rendering för given dataversion
 
-**Tests**
-- TC-US20-01, TC-US20-02, TC-US20-03, TC-US20-04
+**Testfall**
+- TC-US20-01 – TC-US20-04
 
 ---
 
-### US-21 – Kommunanpassad rapportvisning
+### US-21 – Kommunanpassad rapportvy
 **Som** användare  
-**vill jag** kunna läsa rapporten för min kommun  
-**så att** jag ser lokal situation.
+**vill jag** se rapporten för min kommun  
+**så att** situationen blir lokal och relevant.
 
 **AC**
-- Kommunval via: query-param → basprofil → manuellt val
-- Banner visas direkt vid öppning om underlag är för litet
-- Kommunvärden maskas enligt policy
-- Total/jämförelsevärden visas endast om underlag räcker
+- Kommun väljs via:
+  1. URL-parameter
+  2. basprofil
+  3. manuellt val
+- Small-n:
+  - banner visas direkt
+  - värden maskas med “X”
+- Jämförelsevärden visas endast om tillräckligt underlag finns
 
-**Tests**
-- TC-US21-01, TC-US21-02, TC-US21-03, TC-US21-04, TC-US21-05, TC-US21-06
+**Testfall**
+- TC-US21-01 – TC-US21-06
 
 ---
 
-## PUBLICERING
+## 6. Publicering
 
-### US-22 – Publicera och dela rapport
-**Som** analytiker  
-**vill jag** kunna publicera rapporter kontrollerat  
-**så att** rätt innehåll når rätt målgrupp.
+### US-22 – Publicera rapport
+**Som** Analyst  
+**vill jag** publicera rapporter kontrollerat  
+**så att** rätt innehåll blir publikt.
 
 **AC**
-- Default-synlighet är intern
+- Default: intern
+- Kan publiceras för:
+  - inloggade
+  - allmänheten
+- Stabil canonical URL skapas
 - Publicering är reversibel
-- Stabil URL skapas vid publicering
-- Ersättning skapar redirect till senaste version
-- Publicering av rapport med kuraterad fritext kräver uttrycklig bekräftelse
+- Ersättning skapar redirect
+- Publicering med kuraterad fritext kräver extra bekräftelse
 
-**Tests**
-- TC-US22-01, TC-US22-02, TC-US22-03, TC-US22-04
+**Testfall**
+- TC-US22-01 – TC-US22-04
 
 ---
 
-## NÄTVERK & SAMVERKAN
+## 7. Fritext & moderation
 
-### US-08 – Erbjud nätverkskoppling
-**Som** system  
-**vill jag** identifiera liknande situationer  
-**så att** samverkan kan erbjudas.
+### US-15 – Moderera fritext
+**Som** Admin/Analyst  
+**vill jag** kunna granska och kuratera fritext  
+**så att** publikt material inte blir identifierande.
 
 **AC**
-- Erbjudande visar antal + grov kontext (ingen individexponering)
+- Parent kan flagga fritext
+- Redaktionella åtgärder:
+  - redigera
+  - kuratera
+  - utesluta
+- Endast kuraterad fritext får visas publikt
+- Alla åtgärder audit-loggas
 
-**Tests**
+**Testfall**
+- TC-US15-01 – TC-US15-03
+
+---
+
+## 8. Nätverk mellan föräldrar
+
+### US-08 – Identifiera liknande situationer
+**Som** system  
+**vill jag** identifiera föräldrar i liknande situation  
+**så att** nätverk kan erbjudas.
+
+**AC**
+- Matchning sker på grov nivå
+- Ingen individinformation exponeras
+
+**Testfall**
 - TC-US08-01, TC-US08-02
 
 ---
 
 ### US-09 – Opt-in till kontakt
-**Som** förälder  
-**vill jag** själv välja om jag vill ha kontakt  
+**Som** Parent  
+**vill jag** själv välja om jag vill få kontakt  
 **så att** jag behåller kontrollen.
 
 **AC**
 - Endast ja-sägare kopplas ihop
-- Introduktion sker via gemensamt e-postmeddelande
-- Meddelandet innehåller motivering till varför det skickas
-- Plattformens ansvar upphör efter introduktionen
+- Introduktion sker via e-post
+- Mailet innehåller tydlig motivering
+- Plattformens ansvar upphör efter introduktion
 
-**Tests**
-- TC-US09-01, TC-US09-02, TC-US09-03
+**Testfall**
+- TC-US09-01 – TC-US09-03
 
 ---
 
-## AI-FÖRDJUPNING
+## 9. AI-fördjupning
 
-### US-13 – Initiera AI-analys
-**Som** analytiker  
-**vill jag** köra AI-baserad fördjupning  
-**så att** rapporten får kontext.
+### US-13 – AI-baserad kontextanalys
+**Som** Analyst  
+**vill jag** kunna lägga till AI-genererad analys  
+**så att** rapporten får djupare kontext.
 
 **AC**
 - Endast fasta prompts används
 - AI-innehåll märks tydligt
 - Påverkar inte kvantitativ analys
 
-**Tests**
+**Testfall**
 - TC-US13-01, TC-US13-02
 
 ---
 
-## ADMINISTRATION & SKYDD
+## 10. Administration
 
-### US-15 – Administrera dataskydd
-**Som** admin  
-**vill jag** styra åtkomst och moderation  
-**så att** integritet efterlevs.
-
-**AC**
-- RBAC tillämpas
-- Redaktionella ingrepp skapar audit-händelser
-- Avpublicering är möjlig utan att radera historik
-
-**Tests**
-- TC-US15-01, TC-US15-02, TC-US15-03, TC-SEC-02
-
----
-
-### US-19 – Roll- och behörighetsadmin
-**Som** admin  
-**vill jag** kunna tilldela roller  
+### US-19 – Roll- och behörighetsadministration
+**Som** Admin  
+**vill jag** hantera roller  
 **så att** rätt personer gör rätt saker.
 
 **AC**
-- Roller: Allmänheten / Parent / Analyst / Admin
-- Alla ändringar loggas och slår igenom omedelbart
+- Roller:
+  - Allmänheten
+  - Parent
+  - Analyst
+  - Admin
+- Ändringar slår igenom direkt
+- Alla ändringar audit-loggas
 
-**Tests**
-- TC-US19-01, TC-US19-02, TC-SEC-03, TC-SEC-04, TC-SEC-05
+**Testfall**
+- TC-US19-01, TC-US19-02
+
+---
+
+## 11. Allmänheten
+
+### US-30 – Läsa publika rapporter
+**Som** medlem av allmänheten  
+**vill jag** läsa publicerade rapporter utan inloggning  
+**så att** kunskap sprids öppet.
+
+**AC**
+- Ingen inloggning krävs
+- Endast publika rapporter visas
+- Kuraterad fritext kan ingå
+- Inga skyddade endpoints är åtkomliga
+
+**Testfall**
+- TC-SEC-01, TC-US22-04
 
 ---
