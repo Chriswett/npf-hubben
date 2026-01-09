@@ -13,6 +13,7 @@ from backend.services import (
     BaseProfileService,
     NetworkService,
     PublishingService,
+    PublicSiteService,
     ReportService,
     ResponseService,
     SurveyService,
@@ -36,6 +37,7 @@ class ServiceTests(unittest.TestCase):
         self.backup = BackupService(self.stores.responses)
         self.admin = AdminService(self.stores.pii)
         self.survey_flow = SurveyFlowService(self.stores.pii, self.stores.responses)
+        self.public_site = PublicSiteService(self.stores.responses, self.stores.pii)
 
     def test_us01_registration_and_verification(self):
         result = self.auth.register("parent@example.com")
@@ -167,10 +169,52 @@ class ServiceTests(unittest.TestCase):
         self.assertFalse(publishing.can_view(None, version))
         self.assertEqual(publishing.resolve_public_url(version.id), "/reports/rapport-2")
 
+    def test_public_site_news_and_library(self):
+        item = self.public_site.add_news_item("Nyhet", "Innehåll")
+        self.assertEqual(item.title, "Nyhet")
+        news = self.public_site.list_news()
+        self.assertEqual(len(news), 1)
+        survey = self.surveys.create_survey({"questions": [{"type": "scale"}]})
+        template = self.reports.create_template(survey.id, [{"type": "text", "content": "Hej"}])
+        self.aggregations.build_snapshot(survey.id, min_responses=1)
+        analyst = self.auth.verify_email(self.auth.register("lib-analyst@example.com").verification_token)
+        analyst = self.stores.pii.update_user(analyst.id, role="analyst")
+        publishing = PublishingService(self.stores.responses)
+        version = publishing.publish(analyst, template_id=template.id, visibility="public")
+        publishing.set_public_url(analyst, version.id, "publik-1")
+        library = self.public_site.list_public_reports()
+        self.assertEqual(library[0]["canonical_url"], "/reports/publik-1")
+
+    def test_public_site_report_reader_uses_kommun_fallback(self):
+        survey = self.surveys.create_survey({"questions": [{"type": "scale"}]})
+        template = self.reports.create_template(survey.id, [{"type": "text", "content": "Hej $kommun"}])
+        self.aggregations.build_snapshot(survey.id, min_responses=1)
+        analyst = self.auth.verify_email(self.auth.register("reader-analyst@example.com").verification_token)
+        analyst = self.stores.pii.update_user(analyst.id, role="analyst")
+        publishing = PublishingService(self.stores.responses)
+        version = publishing.publish(analyst, template_id=template.id, visibility="public")
+        publishing.set_public_url(analyst, version.id, "publik-2")
+        parent = self.auth.verify_email(self.auth.register("reader-parent@example.com").verification_token)
+        BaseProfileService(self.stores.pii).ensure_base_profile(parent, "Kommun X", ["skola"])
+        response = self.public_site.read_report("/reports/publik-2", viewer=parent)
+        self.assertIn("Kommun X", json.dumps(response["payload"]))
     def test_us08_offer_text_and_matching(self):
         text = self.network.offer_text(3, "kommun A")
         self.assertIn("3", text)
         self.assertIn("kommun A", text)
+        user_a = self.auth.verify_email(self.auth.register("match-a@example.com").verification_token)
+        user_b = self.auth.verify_email(self.auth.register("match-b@example.com").verification_token)
+        user_c = self.auth.verify_email(self.auth.register("match-c@example.com").verification_token)
+        base_service = BaseProfileService(self.stores.pii)
+        base_service.ensure_base_profile(user_a, "Kommun A", ["sömn"])
+        base_service.ensure_base_profile(user_b, "Kommun A", ["sömn"])
+        base_service.ensure_base_profile(user_c, "Kommun B", ["skola"])
+        summaries = self.network.build_match_summaries()
+        summary_contexts = {summary["context"] for summary in summaries}
+        self.assertIn("Kommun A (sömn)", summary_contexts)
+        for summary in summaries:
+            self.assertTrue(all(isinstance(user_id, int) for user_id in summary["user_ids"]))
+        self.assertNotIn("match-a@example.com", json.dumps(summaries))
 
     def test_us09_opt_in_and_outbox(self):
         user_a = self.auth.verify_email(self.auth.register("a@example.com").verification_token)
@@ -179,9 +223,11 @@ class ServiceTests(unittest.TestCase):
         self.network.set_preference(user_b, False)
         event = self.network.create_introduction([user_a, user_b], "matchning")
         self.assertEqual(event.recipients, [user_a.id])
+        self.assertIsNotNone(event.mail_id)
         outbox = self.stores.pii.list_outbox()
         self.assertEqual(len(outbox), 1)
         self.assertIn("Varför du får detta mail", outbox[0].body)
+        self.assertEqual(outbox[0].recipients, event.recipients)
 
     def test_us09_public_access_blocked(self):
         with self.assertRaises(UnauthorizedError):

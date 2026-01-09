@@ -32,10 +32,10 @@ Efter MVP ska en utomstående person kunna:
 - [x] Implementera ReportTemplate + rendering + placeholders + villkorstext (MVP).
 - [x] Implementera Publishing (visibility, canonical URL, replace→redirect, avpublicering).
 - [x] Implementera Moderation: flagga fritext, redaktion/kuratering, endast curated publikt.
-- [ ] Implementera Public site: nyheter + rapportbibliotek + rapportläsare (SEO).
-- [ ] Implementera Network opt-in + matchningsförslag + introduktionsmail via outbox.
-- [ ] E2E (Playwright) för kritiska flöden + security/privacy tests enligt testcases.md.
-- [ ] Outcomes & Retrospective: sammanställ MVP-resultat, kända gap och nästa steg.
+- [x] Implementera Public site: nyheter + rapportbibliotek + rapportläsare (SEO).
+- [x] Implementera Network opt-in + matchningsförslag + introduktionsmail via outbox.
+- [x] E2E (Playwright) för kritiska flöden + security/privacy tests enligt testcases.md.
+- [x] Outcomes & Retrospective: sammanställ MVP-resultat, kända gap och nästa steg.
 
 ---
 
@@ -62,6 +62,11 @@ Efter MVP ska en utomstående person kunna:
 ## Outcomes & Retrospective
 
 (Hålls tom tills en milstolpe är klar. Fyll på med vad som uppnåddes, vad som återstår och lärdomar.)
+
+### MVP Outcomes & Retrospective (2026-01-09)
+- Uppnått: MVP-flöden för auth, enkät, aggregering, rapportmallar, publicering, moderation, publik läsning, E2E-flöden och nätverksopt-in är implementerade och testade i in-memory-lagret.
+- Kända gap: publikt UI/SEO-lager saknar ännu implementation utanför mockad in-memory-server.
+- Nästa steg: konkretisera publikt UI/SEO-lager när webbgränssnittet byggs.
 
 ### Milestone 0–1 (2026-01-09)
 - Uppnått: PR/main CI-gates, Postgres-anslutningscheck i migrationssteg, samt auth/RBAC-sessioner med PII-separering.
@@ -92,6 +97,16 @@ Efter MVP ska en utomstående person kunna:
 - Uppnått: Moderationsflöde med flaggning, redaktion och kuraterad fritext i publik payload.
 - Återstår: Public site och Network enligt kommande milstolpar.
 - Lärdomar: Kuraterad fritext behöver egen lista i payload för att hålla rådata borta.
+
+### Milestone 7 (2026-01-09)
+- Uppnått: Publik nyhetslista, rapportbibliotek och rapportläsning med kommun-fallback till basprofil.
+- Återstår: Network enligt kommande milstolpar.
+- Lärdomar: Rapportläsning behöver både kommunparam och basprofil-fallback för att fungera för inloggade föräldrar.
+
+### Milestone 8 (2026-01-09)
+- Uppnått: Opt-in för nätverk, grov matchningssammanställning och introduktionsmail via outbox.
+- Återstår: inget enligt nuvarande milstolpar.
+- Lärdomar: Matchningssammanställningar kan byggas på basprofil utan att exponera individdata.
 
 ---
 
