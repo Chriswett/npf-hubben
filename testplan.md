@@ -26,7 +26,8 @@ De dupliceras inte i user stories utan verifieras via tester.
 
 ### 2.1 Säkerhet & integritet
 - Publika sidor och API:er får inte exponera PII eller rådata.
-- Endast aggregerade och/eller kuraterade data får visas publikt.
+- Endast aggregerade data och fritext enligt reviewstatus får visas publikt.
+- Fritext med status **hide** får aldrig exponeras publikt.
 - Produktionsloggar får inte innehålla:
   - personuppgifter
   - enkätpayloads
@@ -190,6 +191,7 @@ Automatiserade tester ska verifiera:
 - CSP och X-Frame-Options headers
 - rate limiting för inloggningsförsök
 - loggpolicy i prod-mode
+- fritext-reviewstatus respekteras (hide aldrig publikt)
 
 Testfall refereras via `TC-SEC-xx`.
 
@@ -225,5 +227,3 @@ Testplanen säkerställer att plattformen:
 - skyddar användare även vid misstag
 - kan utvecklas iterativt utan regressionsrisk
 - är redo för agent-/Codex-driven utveckling
-
-Testning är en förstaklassmedborgare – inte ett efterarbete.

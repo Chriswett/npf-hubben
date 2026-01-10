@@ -31,12 +31,13 @@ Efter MVP ska en utomstående person kunna:
 - [x] Implementera Aggregation + snapshots + min_responses-maskning.
 - [x] Implementera ReportTemplate + rendering + placeholders + villkorstext (MVP).
 - [x] Implementera Publishing (visibility, canonical URL, replace→redirect, avpublicering).
-- [x] Implementera Moderation: flagga fritext, redaktion/kuratering, endast curated publikt.
+- [x] Implementera Moderation: flagga fritext, redaktion/reviewstatus, publika regler per status.
 - [x] Implementera Public site: nyheter + rapportbibliotek + rapportläsare (SEO).
 - [x] Implementera Network opt-in + matchningsförslag + introduktionsmail via outbox.
 - [x] E2E (Playwright) för kritiska flöden + security/privacy tests enligt testcases.md.
 - [x] Outcomes & Retrospective: sammanställ MVP-resultat, kända gap och nästa steg.
 - [ ] (2026-01-10) Gap-analys mot arkitektur/security/testplan och uppdatera ExecPlan för åtgärder.
+- [ ] (2026-01-10) Förtydliga fritext-reviewflöde (statusar, flaggar, batch-review) i plan och testfall.
 
 ---
 
@@ -59,6 +60,10 @@ Efter MVP ska en utomstående person kunna:
   Evidence: migrations.py gör endast create_connection; storage är in-memory.
 - Observation: Moderationsåtgärder audit-loggas inte.
   Evidence: userstories.md kräver audit-logg; ModerationService skapar inga AuditEvent.
+- Observation: Fritextsvar saknar explicita review-statusar och flagged-for-review-flöde i domänmodell.
+  Evidence: userstories.md beskriver reviewstatusar; architecture.md saknar TextReview i tidigare version.
+- Observation: CuratedText blir överflödigt när publik visning styrs via TextReview-statusar.
+  Evidence: reviewstatusar definierar synlig/ej synlig fritext i publika rapporter.
 
 ---
 
@@ -71,6 +76,12 @@ Efter MVP ska en utomstående person kunna:
 - Decision: CI-migrationskontroll görs via socket-anslutning till Postgres för att undvika nya beroenden.
   Rationale: Uppfyller krav på Postgres i CI utan att lägga till DB-drivrutin i MVP-skelettet.
   Date/Author: 2026-01-09 / Codex
+- Decision: Inför TextReview som separat modell för att hantera reviewstatusar och flagged-for-review.
+  Rationale: Tydlig spårbarhet mellan svar, reviewstatus och kuraterad publikation utan PII-läckage.
+  Date/Author: 2026-01-10 / Codex
+- Decision: Fasa ut CuratedText och använd TextReview-statusar för publik fritext.
+  Rationale: Enhetlig källa för synlighetsregler (hide filtreras, unreviewed/reviewed/highlight kan visas).
+  Date/Author: 2026-01-10 / Codex
 
 ---
 
@@ -221,16 +232,30 @@ Acceptans:
 - `TC-US22-*` passerar (inkl. Playwright redirect).
 - Allmänheten kan läsa publicerad rapport, men saknar access till skyddade endpoints.
 
-### Milestone 6: Moderation & kuraterad fritext i publika rapporter
-Mål: fritext kan flaggas och kurateras; endast curated syns publikt.
+### Milestone 6: Moderation & reviewstatus i publika rapporter
+Mål: fritext kan flaggas och reviewas; publika regler styrs av status.
 - UI: tydliga uppmaningar att inte lämna identifierande info.
 - Flagga-funktion.
-- Analyst/Admin: redigera/kuratera.
-- Public rendering: endast curated text får inkluderas.
+- Analyst/Admin: reviewstatus (**reviewed**/**highlight**/**hide**).
+- Public rendering: `hide` filtreras bort.
 
 Acceptans:
 - `TC-US15-01..03` passerar.
-- Negativt: rå fritext ska aldrig synas i publik vy (`TC-US15-02`).
+- Negativt: `hide` ska aldrig synas i publik vy (`TC-US15-02`).
+
+### Milestone 6b: Fritext-reviewflöde (status + flaggning)
+Mål: analytiker kan granska fritext per enkät och hantera flaggningar över tid.
+- Fritextsvar skapas som `unreviewed`.
+- Reviewstatusar: `reviewed`, `highlight`, `hide`.
+- Flagging: `flagged_for_review` och `reviewed_after_flagging`.
+- Batch-review av kvarvarande svar i en enkät.
+- Fälttyper (ExecPlan):
+  - TextReview.id:int, response_id:int, status:str, flagged_for_review:bool, reviewed_by:int, reviewed_at:datetime
+  - TextFlag.id:int, response_id:int, reason:str, flagged_at:datetime
+
+Acceptans:
+- `TC-US15-04` och `TC-US16-01..03` passerar.
+- Publik payload innehåller aldrig `hide`.
 
 ### Milestone 7: Public site (nyheter + rapportbibliotek)
 Mål: en publik “webb” med SEO-indexering, sök/filter och rapportläsning.
@@ -256,12 +281,13 @@ Acceptans:
 Mål: åtgärda identifierade gap mot arkitektur/security/testplan utan att bryta MVP-scope.
 - Lägg till ConsentRecord-modell och flöde för grund- och specifika samtycken (utan nya datakategorier).
 - Byt SurveyResponse till pseudonym/anon-ID och säkra att PII aldrig korsas med response-store.
-- Koppla CuratedText till rapportblock eller template och filtrera publikt per rapport.
+- Ersätt CuratedText med reviewstatusar i publika rapporter (hide filtreras).
 - Gör publicerade ReportVersion immutabla (ersättningsflöde används i stället för mutation).
 - Gör data_version_hash deterministisk genom stabil sortering eller hash av snapshot-id.
 - Inför riktig Postgres-persistens + migreringar i CI enligt testplan.md.
 - Audit-logga moderationsåtgärder (flagga/redaktion/kuratering).
 - Dokumentera nya fält/invariansändringar i Decision Log innan implementation.
+- Lista tydliga fälttyper i ExecPlan för varje ny/ändrad modell (t.ex. ConsentRecord.id:int, type:str, version:str, status:str, timestamp:datetime).
 
 Acceptans:
 - Nya/uppdaterade testfall täcker samtycken, immutabilitet, audit-logg för moderation.
