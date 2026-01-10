@@ -162,9 +162,12 @@ PII lagras isolerat och används endast för:
 ### 4.6 Fritext & moderation
 - **TextFlag**
 - **TextRedactionEvent**
-- **CuratedText**
-  - enda fritext som får visas publikt
-  - alltid kopplad till rapportblock
+- **TextReview**
+  - response_id
+  - status (`unreviewed`, `reviewed`, `highlight`, `hide`, `reviewed_after_flagging`)
+  - flagged_for_review (bool)
+  - reviewed_by
+  - reviewed_at
 
 ---
 
