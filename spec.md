@@ -119,11 +119,13 @@ i liknande situationer, utan att skapa social exponering eller beroenden.
 ### 4.5 Fritext och moderation
 - Fritextsvar samlas in men exponeras aldrig rått publikt
 - Andra användare kan flagga olämplig fritext
+- Fritextsvar markeras som **unreviewed** vid inkommande svar
 - Analytiker/admin kan:
-  - redigera
-  - kuratera
-  - utesluta fritext
-- Endast kuraterad fritext får förekomma i publika rapporter
+  - granska per enkät
+  - markera svar som **reviewed**, **highlight** eller **hide**
+  - batch-markera återstående svar i en review-session
+  - hantera flaggade svar och markera dem som **reviewed after flagging**
+- Fritext i publika rapporter styrs av reviewstatus (hide visas aldrig)
 
 ---
 
