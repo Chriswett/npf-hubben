@@ -36,6 +36,7 @@ Efter MVP ska en utomstående person kunna:
 - [x] Implementera Network opt-in + matchningsförslag + introduktionsmail via outbox.
 - [x] E2E (Playwright) för kritiska flöden + security/privacy tests enligt testcases.md.
 - [x] Outcomes & Retrospective: sammanställ MVP-resultat, kända gap och nästa steg.
+- [ ] (2026-01-10) Gap-analys mot arkitektur/security/testplan och uppdatera ExecPlan för åtgärder.
 
 ---
 
@@ -44,6 +45,20 @@ Efter MVP ska en utomstående person kunna:
 (Hålls tom tills arbetet startar. Fyll på med korta observationer + evidens.)
 - Observation: Milestone 0/1 kan verifieras med in-memory stores och socket-check mot Postgres i CI utan extra beroenden.
   Evidence: CI-workflows kör migrationskontroll och tester mot Postgres service.
+- Observation: Samtycken saknas i domänmodell och flöden trots krav på ConsentRecord och stegvis samtycke.
+  Evidence: architecture.md kräver ConsentRecord; domain.py saknar ConsentRecord-modell.
+- Observation: SurveyResponse lagrar user_id i stället för respondent_pseudonym, vilket skapar direkt PII-koppling.
+  Evidence: architecture.md beskriver respondent_pseudonym; domain.py använder user_id.
+- Observation: Kuraterad fritext kopplas inte till rapportblock och filtreras inte per rapport.
+  Evidence: architecture.md kräver block-koppling; PublicSiteService skickar alla curated_texts globalt.
+- Observation: Publicerade rapportversioner kan uppdateras (visibility/canonical_url), vilket bryter immutabilitet.
+  Evidence: architecture.md kräver immutabla versioner; storage.update_report_version används av PublishingService.
+- Observation: data_version_hash kan bli ordningsberoende av response-IDs.
+  Evidence: hash byggs av listan i nuvarande ordning utan sortering.
+- Observation: Postgres-stöd är endast socket-check; inga riktiga migreringar eller persistens.
+  Evidence: migrations.py gör endast create_connection; storage är in-memory.
+- Observation: Moderationsåtgärder audit-loggas inte.
+  Evidence: userstories.md kräver audit-logg; ModerationService skapar inga AuditEvent.
 
 ---
 
@@ -236,6 +251,20 @@ Mål: erbjuda nätverk, endast ja-sägare kopplas och mail skapas.
 Acceptans:
 - `TC-US08-*`, `TC-US09-*` passerar.
 - Inga nätverksendpoints åtkomliga för Allmänheten.
+
+### Milestone 9: Compliance Hardening (arkitektur + security + NFR-gap)
+Mål: åtgärda identifierade gap mot arkitektur/security/testplan utan att bryta MVP-scope.
+- Lägg till ConsentRecord-modell och flöde för grund- och specifika samtycken (utan nya datakategorier).
+- Byt SurveyResponse till pseudonym/anon-ID och säkra att PII aldrig korsas med response-store.
+- Koppla CuratedText till rapportblock eller template och filtrera publikt per rapport.
+- Gör publicerade ReportVersion immutabla (ersättningsflöde används i stället för mutation).
+- Gör data_version_hash deterministisk genom stabil sortering eller hash av snapshot-id.
+- Inför riktig Postgres-persistens + migreringar i CI enligt testplan.md.
+- Audit-logga moderationsåtgärder (flagga/redaktion/kuratering).
+
+Acceptans:
+- Nya/uppdaterade testfall täcker samtycken, immutabilitet, audit-logg för moderation.
+- `TC-SEC-*` + relevanta US/TC passerar mot Postgres-backend.
 
 ---
 
