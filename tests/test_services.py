@@ -11,6 +11,7 @@ from backend.services import (
     AuthService,
     BackupService,
     BaseProfileService,
+    ConsentService,
     NetworkService,
     PublishingService,
     PublicSiteService,
@@ -29,7 +30,7 @@ class ServiceTests(unittest.TestCase):
         self.rate_limiter = RateLimiter(max_attempts=1)
         self.auth = AuthService(self.stores.pii, self.rate_limiter)
         self.surveys = SurveyService(self.stores.responses)
-        self.responses = ResponseService(self.stores.responses)
+        self.responses = ResponseService(self.stores.responses, self.stores.pii)
         self.aggregations = AggregationService(self.stores.responses)
         self.reports = ReportService(self.stores.responses)
         self.network = NetworkService(self.stores.pii)
@@ -38,6 +39,7 @@ class ServiceTests(unittest.TestCase):
         self.admin = AdminService(self.stores.pii)
         self.survey_flow = SurveyFlowService(self.stores.pii, self.stores.responses)
         self.public_site = PublicSiteService(self.stores.responses, self.stores.pii)
+        self.consents = ConsentService(self.stores.pii)
 
     def test_us01_registration_and_verification(self):
         result = self.auth.register("parent@example.com")
@@ -68,6 +70,17 @@ class ServiceTests(unittest.TestCase):
         survey = self.surveys.create_survey({"questions": [{"type": "scale"}]})
         response = self.responses.submit_response(user, survey.id, {"q1": 2})
         self.assertFalse(hasattr(response, "email"))
+        self.assertFalse(hasattr(response, "user_id"))
+        self.assertTrue(hasattr(response, "respondent_pseudonym"))
+
+    def test_us02_consent_records(self):
+        result = self.auth.register("consent@example.com")
+        user = result.user
+        records = self.stores.pii.list_consent_records(user_id=user.id)
+        self.assertEqual(len(records), 1)
+        self.assertEqual(records[0].consent_type, "base")
+        specific = self.consents.grant_specific_consent(user, "network", "v1")
+        self.assertEqual(specific.consent_type, "network")
 
     def test_us03_schema_validation_and_defaults(self):
         with self.assertRaises(ValidationError):
@@ -107,6 +120,15 @@ class ServiceTests(unittest.TestCase):
         self.assertEqual(statuses[0]["answered"], True)
         snapshot_default = self.aggregations.build_snapshot_for_survey(survey)
         self.assertEqual(snapshot_default.min_responses, survey.min_responses_default)
+
+    def test_us20_data_version_hash_deterministic(self):
+        result = self.auth.register("hash@example.com")
+        user = self.auth.verify_email(result.verification_token)
+        survey = self.surveys.create_survey({"questions": [{"type": "scale"}]})
+        self.responses.submit_response(user, survey.id, {"q1": 1})
+        snapshot_a = self.aggregations.build_snapshot(survey.id, min_responses=1)
+        snapshot_b = self.aggregations.build_snapshot(survey.id, min_responses=1)
+        self.assertEqual(snapshot_a.data_version_hash, snapshot_b.data_version_hash)
 
     def test_us07_feedback_mode_and_masking(self):
         survey = self.surveys.create_survey({"questions": [{"type": "scale"}]})
@@ -168,6 +190,8 @@ class ServiceTests(unittest.TestCase):
         self.assertTrue(publishing.can_view(None, new_version))
         self.assertFalse(publishing.can_view(None, version))
         self.assertEqual(publishing.resolve_public_url(version.id), "/reports/rapport-2")
+        with self.assertRaises(ConflictError):
+            publishing.set_public_url(analyst, new_version.id, "rapport-3")
 
     def test_public_site_news_and_library(self):
         item = self.public_site.add_news_item("Nyhet", "Innehåll")
@@ -245,26 +269,31 @@ class ServiceTests(unittest.TestCase):
         analyst = self.stores.pii.update_user(result.user.id, verified=True, role="analyst")
         survey = self.surveys.create_survey({"questions": [{"type": "scale"}]})
         response = self.responses.submit_response(analyst, survey.id, {"q": 1}, {"free": "raw"})
-        moderation_service = ModerationService(self.stores.responses)
-        flag = moderation_service.flag_text(response.id, "pii")
+        moderation_service = ModerationService(self.stores.responses, self.stores.pii)
+        flag = moderation_service.flag_text(response.id, analyst, "pii")
         event = moderation_service.redact_text(flag.id, analyst, "curated")
-        curated = moderation_service.add_curated_text(response.id, analyst, "rensad text")
+        moderation_service.review_text(response.id, analyst, "reviewed")
         self.assertEqual(flag.response_id, response.id)
         self.assertEqual(event.flag_id, flag.id)
-        self.assertEqual(curated.response_id, response.id)
+        self.assertEqual(len(self.stores.pii.list_audit_events()), 3)
 
     def test_us15_public_payload_excludes_raw_text(self):
         survey = self.surveys.create_survey({"questions": [{"type": "scale"}]})
         template = self.reports.create_template(survey.id, [{"type": "text", "content": "Hej"}])
         snapshot = self.aggregations.build_snapshot(survey.id, min_responses=1)
-        moderation_service = ModerationService(self.stores.responses)
+        moderation_service = ModerationService(self.stores.responses, self.stores.pii)
         result = self.auth.register("curator@example.com")
         curator = self.stores.pii.update_user(result.user.id, verified=True, role="analyst")
         response = self.responses.submit_response(curator, survey.id, {"q": 1}, {"free": "raw"})
-        curated = moderation_service.add_curated_text(response_id=response.id, curator=curator, text="kuraterad")
-        payload = self.reports.build_report_payload(template, snapshot, kommun="Test", curated_texts=[curated])
+        other = self.auth.verify_email(self.auth.register("curator2@example.com").verification_token)
+        response_hidden = self.responses.submit_response(other, survey.id, {"q": 2}, {"free": "dold"})
+        moderation_service.review_text(response_id=response.id, curator=curator, status="reviewed")
+        moderation_service.review_text(response_id=response_hidden.id, curator=curator, status="hide")
+        curated_texts = self.stores.responses.list_public_texts(["reviewed", "unreviewed", "highlight"])
+        payload = self.reports.build_report_payload(template, snapshot, kommun="Test", text_entries=curated_texts)
         self.assertNotIn("raw_text_fields", json.dumps(payload))
-        self.assertIn("kuraterad", json.dumps(payload))
+        self.assertIn("raw", json.dumps(payload))
+        self.assertNotIn("dold", json.dumps(payload))
 
     def test_us19_role_change_audit(self):
         admin = self.auth.verify_email(self.auth.register("admin@example.com").verification_token)

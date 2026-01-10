@@ -36,6 +36,7 @@ Efter MVP ska en utomstående person kunna:
 - [x] Implementera Network opt-in + matchningsförslag + introduktionsmail via outbox.
 - [x] E2E (Playwright) för kritiska flöden + security/privacy tests enligt testcases.md.
 - [x] Outcomes & Retrospective: sammanställ MVP-resultat, kända gap och nästa steg.
+- [x] (2026-01-10) Milestone 9: Compliance hardening (samtycken, pseudonymisering, immutabla reportversioner, Postgres-migreringar, moderation audit).
 - [ ] (2026-01-10) Gap-analys mot arkitektur/security/testplan och uppdatera ExecPlan för åtgärder.
 - [ ] (2026-01-10) Förtydliga fritext-reviewflöde (statusar, flaggar, batch-review) i plan och testfall.
 
@@ -81,6 +82,15 @@ Efter MVP ska en utomstående person kunna:
   Date/Author: 2026-01-10 / Codex
 - Decision: Fasa ut CuratedText och använd TextReview-statusar för publik fritext.
   Rationale: Enhetlig källa för synlighetsregler (hide filtreras, unreviewed/reviewed/highlight kan visas).
+  Date/Author: 2026-01-10 / Codex
+- Decision: Inför ConsentRecord och samtyckesflöde för grund- och specifika samtycken i PII-zonen.
+  Rationale: Säkerställer GDPR-samtycke med versionering utan nya datakategorier.
+  Date/Author: 2026-01-10 / Codex
+- Decision: Byt SurveyResponse till respondent_pseudonym och flytta idempotensspårning till PII-store.
+  Rationale: Förhindrar direkt koppling mellan PII och response-store.
+  Date/Author: 2026-01-10 / Codex
+- Decision: Lås publicerade reportversioner (immutable) och använd replace/redirect för ändringar.
+  Rationale: Uppfyller arkitekturkravet om immutabla publicerade versioner.
   Date/Author: 2026-01-10 / Codex
 
 ---
@@ -133,6 +143,11 @@ Efter MVP ska en utomstående person kunna:
 - Uppnått: Opt-in för nätverk, grov matchningssammanställning och introduktionsmail via outbox.
 - Återstår: inget enligt nuvarande milstolpar.
 - Lärdomar: Matchningssammanställningar kan byggas på basprofil utan att exponera individdata.
+
+### Milestone 9 (2026-01-10)
+- Uppnått: ConsentRecord-flöde, pseudonymiserade SurveyResponse, TextReview-baserad publik fritext, immutabla publicerade reportversioner, deterministisk data_version_hash, Postgres-migreringar samt moderation-audit.
+- Återstår: Gap-analys och vidare uppdatering av ExecPlan enligt Progress.
+- Lärdomar: PII-separation kräver att idempotens och samtycke hålls strikt i PII-lagret.
 
 ---
 
@@ -289,6 +304,12 @@ Mål: åtgärda identifierade gap mot arkitektur/security/testplan utan att bryt
 - Dokumentera nya fält/invariansändringar i Decision Log innan implementation.
 - Lista tydliga fälttyper i ExecPlan för varje ny/ändrad modell (t.ex. ConsentRecord.id:int, type:str, version:str, status:str, timestamp:datetime).
 
+Fälttyper (ExecPlan):
+- ConsentRecord: id:int, user_id:int, consent_type:str, version:str, status:str, timestamp:datetime(ISO).
+- SurveyResponse: respondent_pseudonym:str, answers:dict, raw_text_fields:dict.
+- TextReview: id:int, response_id:int, status:str, flagged_for_review:bool, reviewed_by:int?, reviewed_at:datetime(ISO)?.
+- ReportVersion: published_state:str (draft/published).
+
 Acceptans:
 - Nya/uppdaterade testfall täcker samtycken, immutabilitet, audit-logg för moderation.
 - `TC-SEC-*` + relevanta US/TC passerar mot Postgres-backend.
@@ -308,6 +329,11 @@ Exempel på vad som ska gå att köra i slutet av Milestone 0:
     - http://localhost:<port>/health → 200 OK
 
 Varje milstolpe ska uppdatera denna sektion med exakta kommandon och korta förväntade outputs.
+
+Milestone 9 (Compliance hardening):
+- I repo-root:
+  - `python -m backend.migrations` → skapar/uppdaterar Postgres-tabeller.
+  - `python -m unittest` → gröna unit/integration-tester inklusive consent/review/immutability.
 
 ---
 

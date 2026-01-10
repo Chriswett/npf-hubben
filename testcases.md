@@ -39,6 +39,13 @@ Notation:
 **Scenario:** Dataseparation  
 - Then: Response store saknar direkt PII (endast pseudonym)
 
+### TC-US02-03 (I, MAIN)
+**Scenario:** Grund- och specifika samtycken  
+- Given: användare registreras  
+- Then: ConsentRecord skapas för grundsamtycke  
+- When: specifikt samtycke registreras  
+- Then: nytt ConsentRecord med type/version lagras
+
 ---
 
 ## US-03 – Skapa enkät
@@ -182,6 +189,12 @@ Notation:
 **Scenario:** Browser-redirect fungerar  
 - Then: Playwright verifierar navigation
 
+### TC-US22-05 (I, MAIN)
+**Scenario:** Publicerad version är immutabel  
+- Given: reportversion med visibility=public och canonical_url  
+- When: försök att ändra canonical_url eller visibility  
+- Then: 409/konflikt returneras
+
 ---
 
 ## US-08 – Erbjud nätverkskoppling
@@ -244,6 +257,11 @@ Notation:
 - When: publik rapport hämtas  
 - Then: endast `unreviewed`, `reviewed` och `highlight` återfinns i publika payloaden  
 - And: `hide` visas aldrig
+
+### TC-US15-05 (I, MAIN)
+**Scenario:** Moderationsåtgärder audit-loggas  
+- When: flagga, review eller redaktion utförs  
+- Then: AuditEvent skapas per åtgärd
 
 ---
 
