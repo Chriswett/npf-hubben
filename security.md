@@ -121,14 +121,14 @@ Detta kommuniceras tydligt till användaren.
 ### 5.3 Fritext (förhöjd risk)
 - användaren uppmanas tydligt att inte lämna identifierande uppgifter
 - kan flaggas av andra användare
-- kan redigeras, kurateras eller uteslutas av analyst/admin
+- kan redigeras eller uteslutas av analyst/admin via reviewstatus
 
 Vid:
 - återkallat samtycke
 - kontoborttagning  
 → fritext tas bort eller anonymiseras
 
-**Endast kuraterad fritext** får förekomma i publika rapporter.
+Fritext i publika rapporter styrs av reviewstatus (endast **unreviewed**, **reviewed** och **highlight** får visas).
 
 ---
 
@@ -153,7 +153,7 @@ Alla åtgärder audit-loggas.
 
 **Allmänheten (oinloggad)**
 - läsa publika rapporter och nyheter
-- läsa publicerad, kuraterad fritext
+- läsa publicerad fritext enligt tillåtna reviewstatusar
 - ingen åtkomst till rådata eller nätverksfunktioner
 
 **Parent**
@@ -166,7 +166,7 @@ Alla åtgärder audit-loggas.
 - skapa enkäter
 - skapa rapportmallar
 - preview och publicera
-- redigera/kuratera fritext
+- redigera och reviewa fritext
 
 **Admin**
 - hantera roller

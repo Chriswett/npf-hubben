@@ -24,7 +24,7 @@ Detta dokument beskriver:
 
 ### 2.1 Dataskydd & anonymitet
 - Identitet (PII) och svar lagras i **separata datalager**
-- Publika vyer använder **endast aggregerad och/eller kuraterad data**
+- Publika vyer använder **endast aggregerad data och fritext med tillåtna reviewstatusar**
 - Small-n-maskning tillämpas konsekvent (`min_responses`)
 - Rå fritext exponeras aldrig publikt
 
@@ -185,7 +185,7 @@ PII lagras isolerat och används endast för:
 ### 5.1 Roller
 - **Allmänheten (oinloggad)**
   - läsa publika rapporter och nyheter
-  - läsa publicerad, kuraterad fritext
+  - läsa publicerad fritext enligt tillåtna reviewstatusar
 - **Parent**
   - svara på enkäter
   - läsa rapporter
@@ -245,8 +245,8 @@ RBAC implementeras centralt i backend.
 ### 6.4 Fritext
 - Parent uppmanas att undvika identifierande uppgifter
 - Fritext kan flaggas
-- Analyst/Admin redigerar → skapar CuratedText
-- Endast CuratedText får visas publikt
+- Analyst/Admin redigerar och sätter reviewstatus
+- Publik visning styrs av reviewstatus (hide visas aldrig)
 
 ---
 

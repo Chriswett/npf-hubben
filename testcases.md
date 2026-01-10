@@ -240,9 +240,10 @@ Notation:
 
 ### TC-US15-04 (I, MAIN)
 **Scenario:** Fritextstatus respekteras  
-- Given: fritextsvar med status `unreviewed` och `hide`  
+- Given: fritextsvar med status `unreviewed`, `reviewed`, `highlight` och `hide`  
 - When: publik rapport hämtas  
-- Then: `hide` visas aldrig; `unreviewed` kan inkluderas
+- Then: endast `unreviewed`, `reviewed` och `highlight` återfinns i publika payloaden  
+- And: `hide` visas aldrig
 
 ---
 
