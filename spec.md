@@ -125,7 +125,7 @@ i liknande situationer, utan att skapa social exponering eller beroenden.
   - markera svar som **reviewed**, **highlight** eller **hide**
   - batch-markera återstående svar i en review-session
   - hantera flaggade svar och markera dem som **reviewed after flagging**
-- Fritext i publika rapporter styrs av reviewstatus (hide visas aldrig)
+- Fritext i publika rapporter styrs av reviewstatus (endast **unreviewed**, **reviewed** och **highlight** visas; **hide** visas aldrig)
 
 ---
 

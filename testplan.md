@@ -26,7 +26,7 @@ De dupliceras inte i user stories utan verifieras via tester.
 
 ### 2.1 Säkerhet & integritet
 - Publika sidor och API:er får inte exponera PII eller rådata.
-- Endast aggregerade data och fritext enligt reviewstatus får visas publikt.
+- Endast aggregerade data och fritext med status **reviewed**, **highlight** eller **unreviewed** får visas publikt.
 - Fritext med status **hide** får aldrig exponeras publikt.
 - Produktionsloggar får inte innehålla:
   - personuppgifter
