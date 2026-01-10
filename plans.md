@@ -261,6 +261,7 @@ Mål: åtgärda identifierade gap mot arkitektur/security/testplan utan att bryt
 - Gör data_version_hash deterministisk genom stabil sortering eller hash av snapshot-id.
 - Inför riktig Postgres-persistens + migreringar i CI enligt testplan.md.
 - Audit-logga moderationsåtgärder (flagga/redaktion/kuratering).
+- Dokumentera nya fält/invariansändringar i Decision Log innan implementation.
 
 Acceptans:
 - Nya/uppdaterade testfall täcker samtycken, immutabilitet, audit-logg för moderation.
