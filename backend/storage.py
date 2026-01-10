@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import secrets
 from dataclasses import replace
 from typing import Dict, List, Optional
 
@@ -8,6 +9,7 @@ from .domain import (
     AiAnalysisRequest,
     AuditEvent,
     BaseProfile,
+    ConsentRecord,
     IntroductionEvent,
     MailOutbox,
     NewsItem,
@@ -17,10 +19,11 @@ from .domain import (
     Session,
     Survey,
     SurveyResponse,
+    TextReview,
     TextFlag,
     TextRedactionEvent,
-    CuratedText,
     User,
+    ConflictError,
 )
 
 
@@ -33,6 +36,9 @@ class PiiStore:
         self._intro_events: Dict[int, IntroductionEvent] = {}
         self._outbox: Dict[int, MailOutbox] = {}
         self._audit_events: Dict[int, AuditEvent] = {}
+        self._consent_records: Dict[int, ConsentRecord] = {}
+        self._pseudonyms: Dict[int, str] = {}
+        self._responses_by_user_survey: Dict[tuple[int, int], bool] = {}
         self._id_counters: Dict[str, int] = {}
 
     def next_id(self, name: str) -> int:
@@ -109,12 +115,38 @@ class PiiStore:
     def list_audit_events(self) -> List[AuditEvent]:
         return list(self._audit_events.values())
 
+    # Consent (PII)
+    def add_consent_record(self, record: ConsentRecord) -> ConsentRecord:
+        self._consent_records[record.id] = record
+        return record
+
+    def list_consent_records(self, user_id: Optional[int] = None) -> List[ConsentRecord]:
+        records = list(self._consent_records.values())
+        if user_id is None:
+            return records
+        return [record for record in records if record.user_id == user_id]
+
+    # Pseudonyms (PII)
+    def get_or_create_pseudonym(self, user_id: int) -> str:
+        pseudonym = self._pseudonyms.get(user_id)
+        if pseudonym:
+            return pseudonym
+        pseudonym = secrets.token_hex(8)
+        self._pseudonyms[user_id] = pseudonym
+        return pseudonym
+
+    def has_submitted_response(self, user_id: int, survey_id: int) -> bool:
+        return self._responses_by_user_survey.get((user_id, survey_id), False)
+
+    def mark_response_submitted(self, user_id: int, survey_id: int) -> None:
+        self._responses_by_user_survey[(user_id, survey_id)] = True
+
 
 class ResponseStore:
     def __init__(self):
         self._surveys: Dict[int, Survey] = {}
         self._responses: Dict[int, SurveyResponse] = {}
-        self._responses_by_user_survey: Dict[tuple[int, int], int] = {}
+        self._responses_by_pseudonym_survey: Dict[tuple[str, int], int] = {}
         self._aggregations: Dict[int, AggregationSnapshot] = {}
         self._templates: Dict[int, ReportTemplate] = {}
         self._report_versions: Dict[int, ReportVersion] = {}
@@ -122,7 +154,8 @@ class ResponseStore:
         self._news: Dict[int, NewsItem] = {}
         self._text_flags: Dict[int, TextFlag] = {}
         self._redaction_events: Dict[int, TextRedactionEvent] = {}
-        self._curated_texts: Dict[int, CuratedText] = {}
+        self._text_reviews: Dict[int, TextReview] = {}
+        self._text_reviews_by_response: Dict[int, int] = {}
         self._ai_requests: Dict[int, AiAnalysisRequest] = {}
         self._id_counters: Dict[str, int] = {}
 
@@ -144,13 +177,13 @@ class ResponseStore:
 
     # Responses
     def add_response(self, response: SurveyResponse) -> SurveyResponse:
-        key = (response.user_id, response.survey_id)
+        key = (response.respondent_pseudonym, response.survey_id)
         self._responses[response.id] = response
-        self._responses_by_user_survey[key] = response.id
+        self._responses_by_pseudonym_survey[key] = response.id
         return response
 
-    def get_response_by_user_survey(self, user_id: int, survey_id: int) -> Optional[SurveyResponse]:
-        response_id = self._responses_by_user_survey.get((user_id, survey_id))
+    def get_response_by_pseudonym_survey(self, pseudonym: str, survey_id: int) -> Optional[SurveyResponse]:
+        response_id = self._responses_by_pseudonym_survey.get((pseudonym, survey_id))
         if response_id is None:
             return None
         return self._responses.get(response_id)
@@ -182,6 +215,10 @@ class ResponseStore:
 
     def update_report_version(self, version_id: int, **updates) -> ReportVersion:
         version = self._report_versions[version_id]
+        if version.published_state == "published":
+            allowed = {"replaced_by"}
+            if set(updates.keys()) - allowed:
+                raise ConflictError("report_version_immutable")
         updated = replace(version, **updates)
         self._report_versions[version_id] = updated
         if updated.canonical_url:
@@ -223,12 +260,39 @@ class ResponseStore:
     def list_redaction_events(self) -> List[TextRedactionEvent]:
         return list(self._redaction_events.values())
 
-    def add_curated_text(self, curated_text: CuratedText) -> CuratedText:
-        self._curated_texts[curated_text.id] = curated_text
-        return curated_text
+    def add_text_review(self, review: TextReview) -> TextReview:
+        if review.response_id in self._text_reviews_by_response:
+            raise ConflictError("text_review_exists")
+        self._text_reviews[review.id] = review
+        self._text_reviews_by_response[review.response_id] = review.id
+        return review
 
-    def list_curated_texts(self) -> List[CuratedText]:
-        return list(self._curated_texts.values())
+    def update_text_review(self, review_id: int, **updates) -> TextReview:
+        review = self._text_reviews[review_id]
+        updated = replace(review, **updates)
+        self._text_reviews[review_id] = updated
+        return updated
+
+    def get_text_review_for_response(self, response_id: int) -> Optional[TextReview]:
+        review_id = self._text_reviews_by_response.get(response_id)
+        if review_id is None:
+            return None
+        return self._text_reviews.get(review_id)
+
+    def list_text_reviews(self) -> List[TextReview]:
+        return list(self._text_reviews.values())
+
+    def list_public_texts(self, allowed_statuses: List[str]) -> List[str]:
+        texts: List[str] = []
+        allowed = set(allowed_statuses)
+        for review in self._text_reviews.values():
+            if review.status not in allowed:
+                continue
+            response = self._responses.get(review.response_id)
+            if not response:
+                continue
+            texts.extend(list(response.raw_text_fields.values()))
+        return texts
 
     # AI requests
     def add_ai_request(self, request: AiAnalysisRequest) -> AiAnalysisRequest:

@@ -57,7 +57,7 @@ class BaseProfile:
 class SurveyResponse:
     id: int
     survey_id: int
-    user_id: int
+    respondent_pseudonym: str
     answers: Dict[str, Any]
     raw_text_fields: Dict[str, str] = field(default_factory=dict)
 
@@ -82,6 +82,7 @@ class ReportVersion:
     id: int
     template_id: int
     visibility: str = "internal"
+    published_state: str = "draft"
     canonical_url: Optional[str] = None
     replaced_by: Optional[int] = None
 
@@ -124,10 +125,23 @@ class TextRedactionEvent:
 
 
 @dataclass(frozen=True)
-class CuratedText:
+class TextReview:
     id: int
     response_id: int
-    text: str
+    status: str
+    flagged_for_review: bool = False
+    reviewed_by: Optional[int] = None
+    reviewed_at: Optional[str] = None
+
+
+@dataclass(frozen=True)
+class ConsentRecord:
+    id: int
+    user_id: int
+    consent_type: str
+    version: str
+    status: str
+    timestamp: str
 
 
 @dataclass(frozen=True)
@@ -148,5 +162,5 @@ class AiAnalysisRequest:
 class AuditEvent:
     id: int
     actor_id: int
-    target_user_id: int
+    target_user_id: Optional[int]
     action: str

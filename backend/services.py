@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import secrets
+from datetime import datetime, timezone
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
@@ -10,6 +11,7 @@ from .domain import (
     AggregationSnapshot,
     BaseProfile,
     ConflictError,
+    ConsentRecord,
     IntroductionEvent,
     MailOutbox,
     NewsItem,
@@ -19,9 +21,9 @@ from .domain import (
     Session,
     Survey,
     SurveyResponse,
+    TextReview,
     TextFlag,
     TextRedactionEvent,
-    CuratedText,
     AiAnalysisRequest,
     AuditEvent,
     User,
@@ -32,6 +34,9 @@ from .storage import PiiStore, ResponseStore
 
 
 ALLOWED_QUESTION_TYPES = {"scale", "multichoice", "singlechoice", "short_text", "long_text"}
+ALLOWED_PUBLIC_TEXT_STATUSES = {"unreviewed", "reviewed", "highlight"}
+ALLOWED_REVIEW_STATUSES = {"unreviewed", "reviewed", "highlight", "hide", "reviewed_after_flagging"}
+BASE_CONSENT_VERSION = "v1"
 
 
 @dataclass
@@ -53,6 +58,15 @@ class AuthService:
             raise ConflictError("email_exists")
         user = User(id=self.store.next_id("user"), email=email, role="parent", verified=False)
         self.store.add_user(user)
+        consent = ConsentRecord(
+            id=self.store.next_id("consent"),
+            user_id=user.id,
+            consent_type="base",
+            version=BASE_CONSENT_VERSION,
+            status="granted",
+            timestamp=datetime.now(timezone.utc).isoformat(),
+        )
+        self.store.add_consent_record(consent)
         token = secrets.token_hex(8)
         self._verification_tokens[token] = user.id
         return RegisterResult(user=user, verification_token=token)
@@ -72,6 +86,53 @@ class AuthService:
         session = Session(token=token, user_id=user.id)
         self.store.add_session(session)
         return session
+
+
+class ConsentService:
+    def __init__(self, store: PiiStore):
+        self.store = store
+
+    def grant_base_consent(self, user: User, version: str = BASE_CONSENT_VERSION) -> ConsentRecord:
+        record = ConsentRecord(
+            id=self.store.next_id("consent"),
+            user_id=user.id,
+            consent_type="base",
+            version=version,
+            status="granted",
+            timestamp=datetime.now(timezone.utc).isoformat(),
+        )
+        self.store.add_consent_record(record)
+        return record
+
+    def grant_specific_consent(self, user: User, consent_type: str, version: str) -> ConsentRecord:
+        if not consent_type:
+            raise ValidationError("consent_type_required")
+        record = ConsentRecord(
+            id=self.store.next_id("consent"),
+            user_id=user.id,
+            consent_type=consent_type,
+            version=version,
+            status="granted",
+            timestamp=datetime.now(timezone.utc).isoformat(),
+        )
+        self.store.add_consent_record(record)
+        return record
+
+    def withdraw_consent(self, record_id: int, user: User) -> ConsentRecord:
+        records = self.store.list_consent_records(user_id=user.id)
+        record = next((item for item in records if item.id == record_id), None)
+        if record is None:
+            raise ValidationError("consent_not_found")
+        updated = ConsentRecord(
+            id=record.id,
+            user_id=record.user_id,
+            consent_type=record.consent_type,
+            version=record.version,
+            status="withdrawn",
+            timestamp=datetime.now(timezone.utc).isoformat(),
+        )
+        self.store.add_consent_record(updated)
+        return updated
 
 
 class SurveyService:
@@ -116,8 +177,9 @@ class BaseProfileService:
 
 
 class ResponseService:
-    def __init__(self, store: ResponseStore):
+    def __init__(self, store: ResponseStore, pii_store: PiiStore):
         self.store = store
+        self.pii_store = pii_store
 
     def submit_response(
         self,
@@ -128,20 +190,29 @@ class ResponseService:
     ) -> SurveyResponse:
         if not user.verified:
             raise ValidationError("unverified_user")
-        if self.store.get_response_by_user_survey(user.id, survey_id):
+        if self.pii_store.has_submitted_response(user.id, survey_id):
             raise ConflictError("duplicate_response")
+        pseudonym = self.pii_store.get_or_create_pseudonym(user.id)
         response = SurveyResponse(
             id=self.store.next_id("response"),
             survey_id=survey_id,
-            user_id=user.id,
+            respondent_pseudonym=pseudonym,
             answers=answers,
             raw_text_fields=raw_text_fields or {},
         )
         self.store.add_response(response)
+        if response.raw_text_fields:
+            review = TextReview(
+                id=self.store.next_id("text_review"),
+                response_id=response.id,
+                status="unreviewed",
+            )
+            self.store.add_text_review(review)
+        self.pii_store.mark_response_submitted(user.id, survey_id)
         return response
 
     def has_answered(self, user: User, survey_id: int) -> bool:
-        return self.store.get_response_by_user_survey(user.id, survey_id) is not None
+        return self.pii_store.has_submitted_response(user.id, survey_id)
 
     def list_status(self, user: User) -> List[Dict[str, Any]]:
         statuses = []
@@ -160,7 +231,8 @@ class AggregationService:
     def build_snapshot(self, survey_id: int, min_responses: int) -> AggregationSnapshot:
         responses = self.store.list_responses_for_survey(survey_id)
         total = len(responses)
-        data_version_hash = hashlib.sha256(json.dumps([r.id for r in responses]).encode("utf-8")).hexdigest()
+        response_ids = sorted(r.id for r in responses)
+        data_version_hash = hashlib.sha256(json.dumps(response_ids).encode("utf-8")).hexdigest()
         metrics = {"total": total}
         snapshot = AggregationSnapshot(
             survey_id=survey_id,
@@ -223,18 +295,17 @@ class ReportService:
         template: ReportTemplate,
         snapshot: AggregationSnapshot,
         kommun: str,
-        curated_texts: Optional[List[CuratedText]] = None,
+        text_entries: Optional[List[str]] = None,
     ) -> Dict[str, Any]:
         rendered = self.render(template, snapshot, kommun)
         small_n = self.apply_small_n(snapshot)
-        curated_payload = [entry.text for entry in (curated_texts or [])]
         return {
             "kommun": kommun,
             "blocks": rendered["blocks"],
             "data_version_hash": rendered["data_version_hash"],
             "metrics": {"total": small_n["total"]},
             "small_n_banner": small_n["masked"],
-            "curated_texts": curated_payload,
+            "curated_texts": list(text_entries or []),
         }
 
 
@@ -250,14 +321,32 @@ class PublishingService:
     def set_public_url(self, actor: User, version_id: int, slug: str) -> ReportVersion:
         require_role(actor, ["analyst", "admin"])
         url = f"/reports/{slug}"
-        return self.store.update_report_version(version_id, canonical_url=url)
+        version = self.store.get_report_version(version_id)
+        if version is None:
+            raise ValidationError("report_version_not_found")
+        if version.published_state == "published":
+            raise ConflictError("report_version_immutable")
+        published_state = version.published_state
+        if version.visibility == "public":
+            published_state = "published"
+        return self.store.update_report_version(version_id, canonical_url=url, published_state=published_state)
 
     def replace(self, actor: User, old_version_id: int, new_version_id: int) -> None:
         require_role(actor, ["analyst", "admin"])
+        version = self.store.get_report_version(old_version_id)
+        if version is None:
+            raise ValidationError("report_version_not_found")
+        if version.replaced_by is not None:
+            raise ConflictError("report_version_already_replaced")
         self.store.update_report_version(old_version_id, replaced_by=new_version_id)
 
     def unpublish(self, actor: User, version_id: int) -> ReportVersion:
         require_role(actor, ["admin"])
+        version = self.store.get_report_version(version_id)
+        if version is None:
+            raise ValidationError("report_version_not_found")
+        if version.published_state == "published":
+            raise ConflictError("report_version_immutable")
         return self.store.update_report_version(version_id, visibility="internal")
 
     def can_view(self, actor: Optional[User], version: ReportVersion) -> bool:
@@ -296,7 +385,7 @@ class PublicSiteService:
     def list_public_reports(self) -> List[Dict[str, Any]]:
         entries = []
         for version in self.response_store.list_report_versions():
-            if version.visibility != "public" or not version.canonical_url:
+            if version.visibility != "public" or version.published_state != "published" or not version.canonical_url:
                 continue
             entries.append(
                 {
@@ -323,7 +412,7 @@ class PublicSiteService:
                 if kommun:
                     redirect_url = f"{redirect_url}?kommun={kommun}"
                 return {"redirect": redirect_url}
-        if version.visibility != "public":
+        if version.visibility != "public" or version.published_state != "published":
             raise UnauthorizedError("report_not_public")
         template = self.response_store.get_report_template(version.template_id)
         if template is None:
@@ -337,19 +426,26 @@ class PublicSiteService:
                 kommun = profile.kommun
         if not kommun:
             raise ValidationError("kommun_required")
-        curated_texts = self.response_store.list_curated_texts()
+        curated_texts = self.response_store.list_public_texts(sorted(ALLOWED_PUBLIC_TEXT_STATUSES))
         report_service = ReportService(self.response_store)
-        payload = report_service.build_report_payload(template, snapshot, kommun=kommun, curated_texts=curated_texts)
+        payload = report_service.build_report_payload(template, snapshot, kommun=kommun, text_entries=curated_texts)
         return {"canonical_url": canonical_url, "payload": payload}
 
 
 class ModerationService:
-    def __init__(self, store: ResponseStore):
+    def __init__(self, store: ResponseStore, pii_store: PiiStore):
         self.store = store
+        self.pii_store = pii_store
 
-    def flag_text(self, response_id: int, reason: str) -> TextFlag:
+    def flag_text(self, response_id: int, actor: User, reason: str) -> TextFlag:
+        require_role(actor, ["parent", "analyst", "admin"])
         flag = TextFlag(id=self.store.next_id("text_flag"), response_id=response_id, reason=reason)
         self.store.add_text_flag(flag)
+        review = self.store.get_text_review_for_response(response_id)
+        if review is None:
+            raise ValidationError("text_review_missing")
+        self.store.update_text_review(review.id, flagged_for_review=True)
+        self._log_audit(actor.id, action=f"text_flag:{response_id}")
         return flag
 
     def redact_text(self, flag_id: int, curator: User, note: str) -> TextRedactionEvent:
@@ -358,16 +454,39 @@ class ModerationService:
             id=self.store.next_id("redaction_event"), flag_id=flag_id, curator_id=curator.id, note=note
         )
         self.store.add_redaction_event(event)
+        self._log_audit(curator.id, action=f"text_redaction:{flag_id}")
         return event
 
-    def add_curated_text(self, response_id: int, curator: User, text: str) -> CuratedText:
+    def review_text(self, response_id: int, curator: User, status: str) -> TextReview:
         require_role(curator, ["analyst", "admin"])
-        curated = CuratedText(id=self.store.next_id("curated_text"), response_id=response_id, text=text)
-        self.store.add_curated_text(curated)
-        return curated
+        if status not in ALLOWED_REVIEW_STATUSES:
+            raise ValidationError("invalid_review_status")
+        review = self.store.get_text_review_for_response(response_id)
+        if review is None:
+            raise ValidationError("text_review_missing")
+        resolved_status = status
+        if review.flagged_for_review and status == "reviewed":
+            resolved_status = "reviewed_after_flagging"
+        updated = self.store.update_text_review(
+            review.id,
+            status=resolved_status,
+            reviewed_by=curator.id,
+            reviewed_at=datetime.now(timezone.utc).isoformat(),
+        )
+        self._log_audit(curator.id, action=f"text_review:{response_id}:{resolved_status}")
+        return updated
 
-    def list_curated_texts(self) -> List[CuratedText]:
-        return self.store.list_curated_texts()
+    def list_text_reviews(self) -> List[TextReview]:
+        return self.store.list_text_reviews()
+
+    def _log_audit(self, actor_id: int, action: str) -> None:
+        event = AuditEvent(
+            id=self.pii_store.next_id("audit"),
+            actor_id=actor_id,
+            target_user_id=None,
+            action=action,
+        )
+        self.pii_store.add_audit_event(event)
 
 
 class NetworkService:
