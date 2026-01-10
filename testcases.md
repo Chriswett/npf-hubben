@@ -231,12 +231,37 @@ Notation:
 - Then: TextFlag + TextRedactionEvent skapas
 
 ### TC-US15-02 (C, MAIN)
-**Scenario:** Endast kuraterad fritext publikt  
-- Then: raw fritext syns aldrig publikt
+**Scenario:** Endast tillåtna reviewstatusar publikt  
+- Then: fritext med `hide` syns aldrig publikt
 
 ### TC-US15-03 (I, MAIN)
 **Scenario:** Avpublicering är reversibel  
 - Then: publik vy bort, intern historik kvar
+
+### TC-US15-04 (I, MAIN)
+**Scenario:** Fritextstatus respekteras  
+- Given: fritextsvar med status `unreviewed` och `hide`  
+- When: publik rapport hämtas  
+- Then: `hide` visas aldrig; `unreviewed` kan inkluderas
+
+---
+
+## US-16 – Reviewa fritextsvar per enkät
+
+### TC-US16-01 (I, MAIN)
+**Scenario:** Nya fritextsvar markeras unreviewed  
+- Then: nya svar hamnar i reviewlista för enkäten
+
+### TC-US16-02 (I, MAIN)
+**Scenario:** Review per enkät  
+- Given: fritextsvar kopplade till enkät X  
+- When: Analyst markerar status  
+- Then: status uppdateras till `reviewed`/`highlight`/`hide`
+
+### TC-US16-03 (I, MAIN)
+**Scenario:** Flagged for review  
+- When: Parent flaggar visad fritext  
+- Then: flaggan visas för Analyst och kan markeras som “reviewed after flagging”
 
 ---
 

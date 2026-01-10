@@ -213,15 +213,35 @@
 
 **AC**
 - Parent kan flagga fritext
+- Nya fritextsvar startar som **unreviewed**
+- Flaggar används för att markera “flagged for review”
 - Redaktionella åtgärder:
-  - redigera
-  - kuratera
-  - utesluta
-- Endast kuraterad fritext får visas publikt
+  - markera **reviewed**, **highlight** eller **hide**
+  - hantera flaggade svar och markera **reviewed after flagging**
+- **Unreviewed** fritext får visas publikt, **hide** får aldrig visas
 - Alla åtgärder audit-loggas
 
 **Testfall**
-- TC-US15-01 – TC-US15-03
+- TC-US15-01 – TC-US15-04
+
+---
+
+## 7.1 Fritext-review (Analyst)
+
+### US-16 – Reviewa fritextsvar per enkät
+**Som** Analyst  
+**vill jag** kunna granska fritextsvar per enkät över tid  
+**så att** inkommande svar kan bedömas och kurateras säkert.
+
+**AC**
+- Reviewlista filtreras per enkät
+- Svar kan markeras som **reviewed**, **highlight** eller **hide**
+- Vid avslutad review kan återstående svar markeras i batch (reviewed/hide/ingen åtgärd)
+- Nya fritextsvar fortsätter komma in som **unreviewed**
+- Flagged‑for‑review visas separat och kan markeras som **reviewed after flagging**
+
+**Testfall**
+- TC-US16-01 – TC-US16-03
 
 ---
 
